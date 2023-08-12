@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart' as fb;
 import 'package:kasie_transie_web/environment.dart';
 import 'package:kasie_transie_web/network.dart';
 import 'firebase_options.dart';
+import 'maps/association_route_maps.dart';
 
 late fb.FirebaseApp firebaseApp;
 fb.User? fbAuthedUser;
@@ -49,7 +50,7 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const AssociationRouteMaps(),
     );
   }
 }

@@ -146,7 +146,7 @@ class Network {
         var end = DateTime.now();
         var ms = end.difference(start).inSeconds;
         debugPrint(
-            '$xyz _getRouteBag 🍎🍎🍎🍎 work is done!, elapsed seconds: 🍎$ms 🍎\n\n');
+            '$xyz _getRouteBag 🍎🍎🍎🍎 work is done!, elapsed seconds: 🍎$ms 🍎bags done: ${bags.length}\n\n');
 
         return bags;
       }
