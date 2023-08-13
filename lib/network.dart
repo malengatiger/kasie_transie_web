@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 
 import 'package:archive/archive_io.dart';
@@ -6,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:kasie_transie_web/data/user.dart';
+import 'package:kasie_transie_web/data/vehicle_heartbeat.dart';
 import 'package:kasie_transie_web/utils/emojis.dart';
 import 'package:kasie_transie_web/utils/functions.dart';
 
@@ -140,15 +142,20 @@ class NetworkHandler {
   Stream<AssociationBag> get associationBagStream =>
       _bagStreamController.stream;
 
+  final StreamController<List<VehicleHeartbeat>> _heartbeatStreamController =
+      StreamController.broadcast();
+
+  Stream<List<VehicleHeartbeat>> get heartbeatStream =>
+      _heartbeatStreamController.stream;
+
   void startTimer(
       {required String associationId,
       required String startDate,
-      required int intervalMinutes}) async {
-
+      required int intervalSeconds}) async {
     pp('\n\n$xyz startTimer for getting association bag ....');
     _handleBag(associationId, startDate);
-    timer = Timer.periodic(Duration(minutes: intervalMinutes), (timer) async {
-      pp('\n\n$xyz ................. timer tick ${E.heartBlue} #${timer.tick}');
+    timer = Timer.periodic(Duration(seconds: intervalSeconds), (timer) async {
+      pp('\n\n$xyz ................. timer tick ${E.heartBlue} #${timer.tick} at ${DateTime.now().toIso8601String()}');
       await _handleBag(associationId, startDate);
     });
   }
@@ -159,9 +166,21 @@ class NetworkHandler {
     final bag = await getAssociationBag(associationId, startDate);
     if (bag != null) {
       pp('$xyz put bag to _bagStreamController ... ${E.heartRed}');
-
       _bagStreamController.sink.add(bag);
+      _filter(bag);
     }
+  }
+
+  void _filter(AssociationBag bag) {
+    final map = HashMap<String, VehicleHeartbeat>();
+    bag.heartbeats.sort((a, b) => a.created!.compareTo(b.created!));
+    for (var value in bag.heartbeats) {
+      map[value.vehicleId!] = value;
+    }
+    final list = map.values.toList();
+    pp('$xyz distinct vehicle last heartbeats: ${list.length} ... ${E.heartRed}');
+
+    _heartbeatStreamController.sink.add(list);
   }
 
   void stopTimer() {

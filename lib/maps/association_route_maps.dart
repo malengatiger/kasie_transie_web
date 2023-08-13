@@ -1,12 +1,17 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:convert';
 import 'dart:math';
+import 'dart:html';
+import 'dart:js' as js;
 
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:kasie_transie_web/data/vehicle_heartbeat.dart';
 import 'package:kasie_transie_web/email_auth_signin.dart';
 import 'package:kasie_transie_web/network.dart';
 import 'package:kasie_transie_web/utils/prefs.dart';
+import 'package:kasie_transie_web/widgets/association_bag_widget.dart';
 import 'package:kasie_transie_web/widgets/drop_down_widgets.dart';
 
 import '../data/association_bag.dart';
@@ -18,6 +23,23 @@ import '../data/user.dart' as lib;
 import '../utils/emojis.dart';
 import '../utils/functions.dart';
 import '../widgets/timer_widget.dart';
+
+class GetToken {
+  static Future<String> getToken() async {
+
+    String associationId = '2f3faebd-6159-4b03-9857-9dad6d9a82ac'; // Replace with actual associationId
+    // Call the JavaScript function to send associationId and get token
+    pp('GetToken: calling Javascript: 🔴 🔴 🔴 🔴 ..... sending associationId: 💪 $associationId 💪');
+    js.context.callMethod('fetchTokenAndSend', [associationId]);
+
+    return "We good, Boss!";
+  }
+
+  static void _handleTokenFromJs(String token) {
+    // Handle the FCM token obtained from JavaScript
+    pp('GetToken:  🔵 🔵 🔵 🔵 FCM Token from JavaScript: $token');
+  }
+}
 
 class AssociationRouteMaps extends StatefulWidget {
   const AssociationRouteMaps({
@@ -46,6 +68,8 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
   bool busy = false;
   bool isHybrid = true;
   final Set<Marker> _markers = HashSet();
+  final Set<Marker> _heartbeatMarkers = HashSet();
+
   final Set<Circle> _circles = HashSet();
   final Set<Polyline> _polyLines = {};
 
@@ -59,7 +83,9 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
   var routes = <lib.Route>[];
   bool showSignIn = false;
   late StreamSubscription<AssociationBag> assocBagStreamSubscription;
+  late StreamSubscription<List<VehicleHeartbeat>> heartbeatStreamSubscription;
 
+  String? webToken;
   @override
   void initState() {
     super.initState();
@@ -70,7 +96,11 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
   AssociationBag? bag;
 
   void _control() async {
+    _setupMessagingListeners();
+    webToken = await GetToken.getToken();
+    pp('$mm ... webToken acquired via JavaScript: ${E.blueDot} $webToken');
     user = await prefs.getUser();
+
     if (user == null) {
       setState(() {
         showSignIn = true;
@@ -80,18 +110,73 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
     _listen();
     _startTimer();
   }
+
+  Future _setupMessagingListeners() async {
+    pp('$mm ... _setting up FCM Messaging Listeners to get messages via Javascript ...');
+    // Set up the service worker to listen for FCM messages
+    if (window.navigator.serviceWorker != null) {
+      final sw = await window.navigator.serviceWorker!
+          .register('firebase-messaging-sw.js');
+      pp('$mm Service Worker registered with scope: ${sw.scope} - '
+          '${E.heartBlue} activated: ${sw.active?.state}');
+      // Listen for messages from the service worker
+      sw.addEventListener('message', (event) {
+        final dynamic message = jsonDecode(event as String);
+        pp('$mm Received message from service worker: ${E.leaf} $message ${E.leaf}');
+        // Handle the FCM message here
+      });
+    } else {
+      pp('$mm ... _setupMessagingListeners NOT set up. ${E.redDot} ${E.redDot} ');
+      return;
+    }
+    pp('$mm Service Worker set up to receive messages ${E.leaf}${E.leaf}${E.leaf}');
+  }
+
+  List<VehicleHeartbeat> heartbeats = [];
   void _listen() {
     pp('$mm will listen to associationBagStream  ${E.heartBlue} ...');
 
-    assocBagStreamSubscription = networkHandler.associationBagStream.listen((event) {
+    assocBagStreamSubscription =
+        networkHandler.associationBagStream.listen((event) {
       pp('$mm associationBagStream delivered event ... ${E.heartBlue} ');
       bag = event;
+      _showBag = true;
       if (mounted) {
-        setState(() {
-
-        });
+        setState(() {});
       }
     });
+
+    heartbeatStreamSubscription =
+        networkHandler.heartbeatStream.listen((event) {
+      pp('$mm associationBagStream delivered event ... ${E.heartBlue} ');
+      heartbeats = event;
+      _putHeartbeatsOnMap();
+    });
+  }
+
+  void _putHeartbeatsOnMap() async {
+    pp('$mm ... _putHeartbeatsOnMap ... ${heartbeats.length}');
+    _heartbeatMarkers.clear();
+    for (var hb in heartbeats) {
+      pp('$mm ... putting ${hb.vehicleReg} on map ... ${hb.position!.coordinates}');
+      final icon = await getTaxiMapIcon(
+          iconSize: 128,
+          text: '${hb.vehicleReg}',
+          style: const TextStyle(
+              color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900),
+          path: 'assets/car2.png');
+      _heartbeatMarkers.add(Marker(
+          markerId: MarkerId('${hb.vehicleId}'),
+          position: LatLng(
+              hb.position!.coordinates.last, hb.position!.coordinates.first),
+          icon: icon,
+          zIndex: 4,
+          infoWindow: InfoWindow(
+              title: '${hb.vehicleReg}',
+              snippet: getFormattedDateLong(hb.created!))));
+
+      setState(() {});
+    }
   }
 
   void _getRouteBags() async {
@@ -126,8 +211,9 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
     });
   }
 
-  int intervalMinutes = 2;
+  int intervalSeconds = 30;
   int minutes = 30;
+  bool _showBag = false;
 
   void _startTimer() async {
     final startDate = DateTime.now()
@@ -138,7 +224,7 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
     networkHandler.startTimer(
         associationId: user!.associationId!,
         startDate: startDate,
-        intervalMinutes: intervalMinutes);
+        intervalSeconds: intervalSeconds);
   }
 
   void _printRoutes() {
@@ -167,6 +253,8 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
 
   @override
   void dispose() {
+    heartbeatStreamSubscription.cancel();
+    assocBagStreamSubscription.cancel();
     super.dispose();
   }
 
@@ -309,21 +397,79 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
                 style: myTextStyleLarge(context),
               ),
               gapW32,
-              ControlWidget(minutes: minutes, onMinutesPicked: (min) {
-                setState(() {
-                  minutes = min;
-                });
-                _startTimer();
-              }),
+              ControlWidget(
+                  minutes: minutes,
+                  onMinutesPicked: (min) {
+                    setState(() {
+                      minutes = min;
+                    });
+                    _startTimer();
+                  }),
             ],
           ),
         ),
         key: _key,
+        drawer: Drawer(
+          elevation: 12,
+          child: ListView(
+            children: [
+              DrawerHeader(
+                decoration: const BoxDecoration(
+                  color: Colors.black38,
+                ),
+                child: SizedBox(
+                  height: 340,
+                  child: Column(
+                    children: [
+                      Image.asset(
+                        'assets/gio.png',
+                        height: 80,
+                        width: 80,
+                      ),
+                      SizedBox(
+                          child: Text(
+                        'Kasie Transie',
+                        style: myTextStyleMediumLargeWithColor(
+                            context, Theme.of(context).primaryColorLight, 28),
+                      )),
+                    ],
+                  ),
+                ),
+              ),
+              gapH32,
+              gapH32,
+              const ListTile(
+                leading: Icon(Icons.airport_shuttle),
+                title: Text('Dispatch Records'),
+              ),
+              gapH32,
+              const ListTile(
+                leading: Icon(Icons.airport_shuttle),
+                title: Text('Vehicle Arrivals'),
+              ),
+              gapH32,
+              const ListTile(
+                leading: Icon(Icons.airport_shuttle),
+                title: Text('Passengers'),
+              ),
+              gapH32,
+              const ListTile(
+                leading: Icon(Icons.airport_shuttle),
+                title: Text('Vehicle Departures'),
+              ),
+              gapH32,
+              const ListTile(
+                leading: Icon(Icons.airport_shuttle),
+                title: Text('Vehicle Heartbeats'),
+              ),
+            ],
+          ),
+        ),
         body: Stack(children: [
           GoogleMap(
             mapType: isHybrid ? MapType.hybrid : MapType.normal,
             myLocationEnabled: true,
-            markers: _markers,
+            markers: _markers..addAll(_heartbeatMarkers),
             circles: _circles,
             polylines: _polyLines,
             initialCameraPosition: _myCurrentCameraPosition,
@@ -382,6 +528,15 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
                     }),
                   ))
               : gapW4,
+          _showBag
+              ? Positioned(
+                  right: 8,
+                  top: 160,
+                  child: AssociationBagWidget(
+                    bag: bag!,
+                    width: 400,
+                  ))
+              : gapW32,
           busy
               ? Positioned(
                   left: 400,
