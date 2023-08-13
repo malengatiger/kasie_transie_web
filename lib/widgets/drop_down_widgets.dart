@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:kasie_transie_web/data/route_point.dart';
+import 'package:kasie_transie_web/data/route.dart' as lib;
 
 import '../utils/functions.dart';
 
@@ -75,3 +77,36 @@ class NumberDropDown extends StatelessWidget {
         });
   }
 }
+
+class RouteDropDown extends StatelessWidget {
+  const RouteDropDown(
+      {Key? key, required this.routes, required this.onRoutePicked})
+      : super(key: key);
+  final List<lib.Route> routes;
+  final Function(lib.Route) onRoutePicked;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = <DropdownMenuItem<lib.Route>>[];
+    for (var r in routes) {
+      items.add(DropdownMenuItem<lib.Route>(
+          value: r,
+          child: Text(
+            r.name!,
+            style: myTextStyleSmall(context),
+          )));
+    }
+    return DropdownButton(
+        hint: Text(
+          'Select Route',
+          style: myTextStyleSmall(context),
+        ),
+        items: items,
+        onChanged: (r) {
+          if (r != null) {
+            onRoutePicked(r);
+          }
+        });
+  }
+}
+

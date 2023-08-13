@@ -3,19 +3,22 @@ import 'dart:collection';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart' as geo;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
+import 'package:kasie_transie_web/email_auth_signin.dart';
 import 'package:kasie_transie_web/network.dart';
+import 'package:kasie_transie_web/utils/prefs.dart';
 import '../data/route_bag.dart';
 import '../data/route_landmark.dart';
 import '../data/route_point.dart';
 import '../data/route.dart' as lib;
+import '../data/user.dart' as lib;
+import 'package:flutter_dotenv/flutter_dotenv.dart' as dot;
 
 import '../utils/emojis.dart';
 import '../utils/functions.dart';
-import '../widgets/drop_down_widgets.dart';
 import '../widgets/multi_route_chooser.dart';
+import '../widgets/timer_widget.dart';
 
 class AssociationRouteMaps extends StatefulWidget {
   const AssociationRouteMaps({
@@ -55,6 +58,7 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
   var routeLandmarks = <RouteLandmark>[];
   int landmarkIndex = 0;
   var routes = <lib.Route>[];
+  bool showSignIn = false;
 
   @override
   void initState() {
@@ -62,40 +66,44 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
     _control();
   }
 
+  lib.User? user;
   void _control() async {
-    _getUser();
+    user = await prefs.getUser();
+    if (user == null) {
+      setState(() {
+        showSignIn = true;
+      });
+    }
   }
 
   void _getData() async {
-    debugPrint('$mm getting route data ..........');
-
-    var token = await fb.FirebaseAuth.instance.currentUser?.getIdToken();
-    if (token == null) {
-      debugPrint('$mm Token not found, will sign in!');
-      final userCred = await fb.FirebaseAuth.instance.signInWithEmailAndPassword(email: 'admin@kasietransie.com',
-          password: 'pass123_kasie');
-      debugPrint('$mm Are we signed in? $userCred');
-      if (userCred.user != null) {
-        token = await fb.FirebaseAuth.instance.currentUser?.getIdToken();
-      }
-
+    if (user == null) {
+      return;
     }
-    if (token == null) {
-      throw Exception('Token not available. We are fucked!');
-    }
+    pp('\n\n$mm ............. getting route data ..........');
+
+    setState(() {
+      busy = true;
+    });
+
     try {
-      bags = await network.getRouteBags(associationId: '2f3faebd-6159-4b03-9857-9dad6d9a82ac');
-      debugPrint('$mm .... route bags: ${bags.length}, if > 0, we are in business!!');
+      pp('$mm ... calling network.getRouteBags ....!');
+
+      bags = await networkHandler.getRouteBags(associationId: user!.associationId!);
+      pp('$mm .... route bags: ${bags.length}, if > 0, we are in business!!');
       for (var value in bags) {
-        debugPrint('$mm route: ${value.route!.name} 🔵🔵'
+        pp('$mm route: ${value.route!.name} 🔵🔵'
             '\n🔵 routeLandmarks: ${value.routeLandmarks.length}'
             '\n🔵 routePoints: ${value.routePoints.length}'
             '\n🔵 routeCities: ${value.routeCities.length}');
         _filter();
       }
     } catch (e) {
-      debugPrint(e.toString());
+      pp(e.toString());
     }
+    setState(() {
+      busy = false;
+    });
   }
 
   void _printRoutes() {
@@ -115,30 +123,33 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
         routes.add(bag.route!);
       }
     }
-   _printRoutes();
+    _printRoutes();
     pp('$mm ... routes filtered: ${routes.length}');
-    _buildHashMap();
+    _buildAssociationMap();
   }
 
   var routesPicked = <lib.Route>[];
 
   void _showBottomSheet() async {
     final type = getThisDeviceType();
-    showModalBottomSheet(context: context, builder: (ctx){
-      return Padding(
-        padding:  EdgeInsets.symmetric(horizontal: type == 'phone'?12.0:48),
-        child: MultiRouteChooser(
-          onRoutesPicked: (routesPicked) {
-            setState(() {
-              this.routesPicked = routesPicked;
-            });
-            Navigator.of(context).pop();
-            _buildHashMap();
-          },
-          routes: routes,
-        ),
-      );
-    });
+    showModalBottomSheet(
+        context: context,
+        builder: (ctx) {
+          return Padding(
+            padding:
+                EdgeInsets.symmetric(horizontal: type == 'phone' ? 12.0 : 48),
+            child: MultiRouteChooser(
+              onRoutesPicked: (routesPicked) {
+                setState(() {
+                  this.routesPicked = routesPicked;
+                });
+                Navigator.of(context).pop();
+                _buildAssociationMap();
+              },
+              routes: routes,
+            ),
+          );
+        });
   }
 
   @override
@@ -148,9 +159,6 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
 
   Color newColor = Colors.black;
   String? stringColor;
-
-  Future _getUser() async {
-  }
 
   Future<void> _zoomToBeginningOfRoute(lib.Route route) async {
     if (route.routeStartEnd != null) {
@@ -172,6 +180,7 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
       required List<BitmapDescriptor> icons,
       required String color}) async {
     pp('$mm .......... _addLandmarks ....... .');
+    routeLandmarks.sort((a, b) => a.index!.compareTo(b.index!));
 
     int landmarkIndex = 0;
     for (var routeLandmark in routeLandmarks) {
@@ -204,19 +213,19 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
     }
     var polyLine = Polyline(
         color: color,
-        width: 8,
+        width: 6,
         points: mPoints,
         onTap: () {
           pp('$mm ... polyLine tapped; route: ${points.first.routeName}');
           if (mounted) {
             showToast(message: '${points.first.routeName}', context: context);
           }
-        },consumeTapEvents: true,
+        },
+        consumeTapEvents: true,
         polylineId: PolylineId(DateTime.now().toIso8601String()));
 
     _polyLines.add(polyLine);
     widthIndex++;
-    setState(() {});
   }
 
   Route? routeSelected;
@@ -230,6 +239,7 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
     }
     return [];
   }
+
   List<RoutePoint> getRoutePoints(String routeId) {
     for (var bag in bags) {
       if (bag.route!.routeId! == routeId) {
@@ -238,38 +248,30 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
     }
     return [];
   }
-  void _buildHashMap() async {
-    pp('$mm ... _buildHashMap: routesPicked: ${routesPicked.length}');
+
+  void _buildAssociationMap() async {
+    pp('$mm ... _buildHashMap: routes: ${routes.length}');
+    _markers.clear();
+    _polyLines.clear();
     for (var route in routes) {
       final points = getRoutePoints(route.routeId!);
       final marks = getLandmarks(route.routeId!);
       final icons = <BitmapDescriptor>[];
       for (var i = 0; i < marks.length; i++) {
-        final icon = await getMarkerBitmap(72,
+        final icon = await getMarkerBitmap(80,
             text: '${i + 1}',
             color: route.color!,
-            fontSize: 28,
+            fontSize: 14,
             fontWeight: FontWeight.w900);
         icons.add(icon);
       }
-      final bag = MapBag(route, points, marks, icons);
-      hashMap[route.routeId!] = bag;
+      _addPolyLine(points, getColor(route.color!));
+      _addLandmarks(routeLandmarks: marks, icons: icons, color: route.color!);
+      pp('$mm ... _buildAssociationMap: map has added: ${route.name} ');
     }
-    pp('$mm ... _buildHashMap: hashMap built: ${hashMap.length}');
 
-    _markers.clear();
-    _polyLines.clear();
-
-    final list = hashMap.values.toList();
-    for (var bag in list) {
-      _addPolyLine(bag.routePoints, getColor(bag.route.color!));
-      _addLandmarks(
-          routeLandmarks: bag.routeLandmarks,
-          icons: bag.landmarkIcons,
-          color: bag.route.color!);
-    }
-    if (hashMap.isNotEmpty) {
-      _zoomToBeginningOfRoute(hashMap.values.toList().first.route);
+    if (routes.isNotEmpty) {
+      _zoomToBeginningOfRoute(routes.first);
     }
   }
 
@@ -279,134 +281,90 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
   Widget build(BuildContext context) {
     return Scaffold(
         appBar: AppBar(
-          title: const Text('Route Map Finder'),
-          bottom: PreferredSize(preferredSize: const Size.fromHeight(64), child: Column(
-            children: [
-              Row(mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  ElevatedButton(
-                      style: const ButtonStyle(
-                        elevation: MaterialStatePropertyAll(8.0),
-                      ),
-                      onPressed: () {
-                        _showBottomSheet();
-                      },
-                      child: SizedBox(width: 200,
-                        child:
-                        Text('${routes.length} Routes'),
-                      )),
-                  gapW16,
-                  DistanceDropDown(
-                    onDistancePicked: (dist) {
-                      setState(() {
-                        distanceInKM = dist;
-                      });
-                      _getData();
-                    },
-                    color: Theme.of(context).primaryColor,
-                    count: 12,
-                    fontSize: 16,
-                    multiplier: 50,
-                  ),
-                ],
-              ),
-              gapH16,
-            ],
-          )),
+          title: Text(
+            'Association Route Map ',
+            style: myTextStyleLarge(context),
+          ),
         ),
         key: _key,
-        body: _myCurrentCameraPosition == null
-            ? Center(
-                child: Text(
-                  'Waiting for GPS location ...',
-                  style: myTextStyleMediumBold(context),
+        body: Stack(children: [
+          GoogleMap(
+            mapType: isHybrid ? MapType.hybrid : MapType.normal,
+            myLocationEnabled: true,
+            markers: _markers,
+            circles: _circles,
+            polylines: _polyLines,
+            initialCameraPosition: _myCurrentCameraPosition!,
+            onTap: (latLng) {
+              pp('$mm .......... on map tapped : $latLng .');
+            },
+            onMapCreated: (GoogleMapController controller) {
+              pp('$mm .......... on onMapCreated .....');
+              _mapController.complete(controller);
+              _getData();
+            },
+          ),
+          Positioned(
+              right: 12,
+              top: 120,
+              child: Container(
+                color: Colors.black45,
+                child: Padding(
+                  padding: const EdgeInsets.all(0.0),
+                  child: IconButton(
+                      onPressed: () {
+                        setState(() {
+                          isHybrid = !isHybrid;
+                        });
+                      },
+                      icon: Icon(
+                        Icons.album_outlined,
+                        color: isHybrid ? Colors.yellow : Colors.white,
+                      )),
                 ),
-              )
-            : Stack(children: [
-                GoogleMap(
-                  mapType: isHybrid ? MapType.hybrid : MapType.normal,
-                  myLocationEnabled: true,
-                  markers: _markers,
-                  circles: _circles,
-                  polylines: _polyLines,
-                  initialCameraPosition: _myCurrentCameraPosition!,
-                  // onTap: (latLng) {
-                  //   pp('$mm .......... on map tapped : $latLng .');
-                  // },
-                  onMapCreated: (GoogleMapController controller) {
-                    pp('$mm .......... on onMapCreated .....');
-                    _mapController.complete(controller);
-                    _getData();
-                  },
-                ),
-                Positioned(
-                    right: 12,
-                    top: 120,
-                    child: Container(
-                      color: Colors.black45,
-                      child: Padding(
-                        padding: const EdgeInsets.all(0.0),
-                        child: IconButton(
-                            onPressed: () {
-                              setState(() {
-                                isHybrid = !isHybrid;
-                              });
-                            },
-                            icon: Icon(
-                              Icons.album_outlined,
-                              color: isHybrid ? Colors.yellow : Colors.white,
-                            )),
+              )),
+          showSignIn
+              ? Positioned(
+                  left: 400,
+                  right: 400,
+                  bottom: 200,
+                  top: 200,
+                  child: Center(
+                    child: EmailAuthSignin(onGoodSignIn: () {
+                      pp('$mm ......... sign in COOL, will get route data ${E.leaf}');
+                      setState(() {
+                        showSignIn = false;
+                      });
+                      _getData();
+                    }, onSignInError: () {
+                      pp('$mm sign in error ${E.redDot}');
+                      if (mounted) {
+                        showSnackBar(
+                            backgroundColor: Colors.red,
+                            textStyle: const TextStyle(color: Colors.white),
+                            message: 'Sign In failed: $e', context: context);
+                      }
+                    }),
+                  ))
+              : gapW4,
+          busy
+              ? Positioned(
+                  left: 400,
+                  right: 400,
+                  bottom: 200,
+                  top: 200,
+                  child: Center(
+                    child: Card(
+                      shape: getDefaultRoundedBorder(),
+                      elevation: 16,
+                      child: const TimerWidget(
+                        title: 'Loading Taxi Route data',
+                        subTitle: 'This may take a minute or two',
                       ),
-                    )),
-                busy
-                    ? const Positioned(
-                        top: 160,
-                        left: 48,
-                        child: Center(
-                          child: SizedBox(
-                            height: 24,
-                            width: 24,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 12,
-                              backgroundColor: Colors.pink,
-                            ),
-                          ),
-                        ),
-                      )
-                    : const SizedBox(),
-              ]));
-  }
-}
-
-class RouteDropDown extends StatelessWidget {
-  const RouteDropDown(
-      {Key? key, required this.routes, required this.onRoutePicked})
-      : super(key: key);
-  final List<lib.Route> routes;
-  final Function(lib.Route) onRoutePicked;
-
-  @override
-  Widget build(BuildContext context) {
-    final items = <DropdownMenuItem<lib.Route>>[];
-    for (var r in routes) {
-      items.add(DropdownMenuItem<lib.Route>(
-          value: r,
-          child: Text(
-            r.name!,
-            style: myTextStyleSmall(context),
-          )));
-    }
-    return DropdownButton(
-        hint: Text(
-          'Select Route',
-          style: myTextStyleSmall(context),
-        ),
-        items: items,
-        onChanged: (r) {
-          if (r != null) {
-            onRoutePicked(r);
-          }
-        });
+                    ),
+                  ))
+              : gapW4,
+        ]));
   }
 }
 
