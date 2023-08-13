@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:archive/archive_io.dart';
@@ -8,6 +9,7 @@ import 'package:kasie_transie_web/data/user.dart';
 import 'package:kasie_transie_web/utils/emojis.dart';
 import 'package:kasie_transie_web/utils/functions.dart';
 
+import 'data/association_bag.dart';
 import 'data/route_bag.dart';
 import 'data/user.dart' as lib;
 import 'environment.dart';
@@ -16,7 +18,7 @@ import 'kasie_exception.dart';
 final NetworkHandler networkHandler = NetworkHandler();
 
 class NetworkHandler {
-  static const xyz = '🍎🍎🍎🍎 Network 🍎🍎';
+  static const xyz = '🍎🍎🍎🍎 NetworkHandler 🍎🍎';
   final http.Client client = http.Client();
 
   Future<String?> getAuthToken() async {
@@ -130,6 +132,83 @@ class NetworkHandler {
     }
   }
 
+  late Timer timer;
+
+  final StreamController<AssociationBag> _bagStreamController =
+      StreamController.broadcast();
+
+  Stream<AssociationBag> get associationBagStream =>
+      _bagStreamController.stream;
+
+  void startTimer(
+      {required String associationId,
+      required String startDate,
+      required int intervalMinutes}) async {
+
+    pp('\n\n$xyz startTimer for getting association bag ....');
+    _handleBag(associationId, startDate);
+    timer = Timer.periodic(Duration(minutes: intervalMinutes), (timer) async {
+      pp('\n\n$xyz ................. timer tick ${E.heartBlue} #${timer.tick}');
+      await _handleBag(associationId, startDate);
+    });
+  }
+
+  Future<void> _handleBag(String associationId, String startDate) async {
+    pp('$xyz _handleBag ... ${E.heartRed}');
+
+    final bag = await getAssociationBag(associationId, startDate);
+    if (bag != null) {
+      pp('$xyz put bag to _bagStreamController ... ${E.heartRed}');
+
+      _bagStreamController.sink.add(bag);
+    }
+  }
+
+  void stopTimer() {
+    pp('$xyz stop timer ...');
+    timer.cancel();
+  }
+
+  Future<AssociationBag?> getAssociationBag(
+      String associationId, String startDate) async {
+    pp('$xyz ... getAssociationBag ...  ${E.heartRed}');
+
+    final token = await getAuthToken();
+    if (token == null) {
+      pp('$xyz token is null, quit! ${E.redDot}${E.redDot}${E.redDot}');
+      return null;
+    } else {
+      pp('$xyz token is just fine! ${E.heartRed}');
+    }
+    final url =
+        '${KasieEnvironment.getUrl()}getAssociationBag?associationId=$associationId&startDate=$startDate';
+    final res = await httpGet(url, token);
+    final bag = AssociationBag.fromJson(res);
+
+    pp('$xyz AssociationBag returned from server');
+    pp('$xyz .... AssociationBag contains: '
+        '\n ${E.appleGreen} arrivals: ${bag.arrivals.length}'
+        '\n ${E.appleGreen} departures: ${bag.departures.length}'
+        '\n ${E.appleGreen} passengerCounts: ${bag.passengerCounts.length}'
+        '\n ${E.appleGreen} heartbeats: ${bag.heartbeats.length}'
+        '\n ${E.appleGreen} dispatchRecords: ${bag.dispatchRecords.length}');
+
+    return bag;
+  }
+
+  Future getAssociationVehicleArrivals(
+      String associationId, String startDate) async {}
+
+  Future getAssociationAmbassadorPassengerCounts(
+      String associationId, String startDate) async {}
+
+  Future getAssociationVehicleHeartbeats(
+      String associationId, String startDate) async {}
+
+  Future getAssociationCommuterRequests(
+      String associationId, String startDate) async {}
+
+  //
   Future<List<RouteBag>> getRouteBags({required String associationId}) async {
     pp('$xyz _getRouteBag: 🔆🔆🔆 get zipped data ...');
 

@@ -20,7 +20,6 @@
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/account_picker-2.1.0" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/mobile_number-2.1.1" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/path_provider-2.1.0" />
-      <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/firebase_messaging-14.6.5" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/path_provider_linux-2.2.0" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/flutter_local_notifications-15.1.0+1" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/firebase_dynamic_links-5.3.4" />
@@ -34,6 +33,7 @@
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/fluttertoast-8.2.2" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/shared_preferences-2.2.0" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/path_provider_android-2.1.0" />
+      <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/package_info_plus-4.1.0" />
     </CLASSES>
     <JAVADOC />
     <SOURCES />

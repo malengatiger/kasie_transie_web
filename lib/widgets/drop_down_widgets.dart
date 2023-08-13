@@ -49,22 +49,22 @@ class NumberDropDown extends StatelessWidget {
       required this.onNumberPicked,
       required this.color,
       required this.count,
-      required this.fontSize})
+      required this.fontSize, required this.multiplier})
       : super(key: key);
 
   final Function(int) onNumberPicked;
   final Color color;
   final double fontSize;
-  final int count;
+  final int count, multiplier;
 
   @override
   Widget build(BuildContext context) {
     List<DropdownMenuItem<int>> items = [];
     for (var i = 0; i < count; i++) {
       items.add(DropdownMenuItem(
-          value: i,
+          value: (i+1)*multiplier,
           child: Text(
-            '$i',
+            '${(i+1)*multiplier}',
             style: myTextStyleMediumLargeWithColor(context, color, fontSize),
           )));
     }

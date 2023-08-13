@@ -13,7 +13,7 @@ class EmailAuthSignin extends StatefulWidget {
       {Key? key, required this.onGoodSignIn, required this.onSignInError})
       : super(key: key);
 
-  final Function onGoodSignIn;
+  final Function(lib.User) onGoodSignIn;
   final Function onSignInError;
 
   @override
@@ -62,9 +62,11 @@ class EmailAuthSigninState extends State<EmailAuthSignin>
         user = await networkHandler.getUserById(userCred.user!.uid);
         if (user != null) {
           pp('$mm KasieTransie user found on database:  🍎 ${user!.toJson()} 🍎');
+
           user!.password = pswdController.value.text;
+          user!.fcmToken = await userCred.user!.getIdToken();
           await prefs.saveUser(user!);
-          pp('\n\n\n$mm ... about to initialize KasieTransie data ..... ');
+          pp('\n\n\n$mm ... about to pop! ..... ');
 
           if (mounted) {
             showSnackBar(
@@ -74,7 +76,7 @@ class EmailAuthSigninState extends State<EmailAuthSignin>
                 textStyle: myTextStyleMedium(context),
                 message: 'You have been signed in OK. Welcome!',
                 context: context);
-            widget.onGoodSignIn();
+            widget.onGoodSignIn(user!);
           }
         }
       } else {

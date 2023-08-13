@@ -4,16 +4,19 @@ import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:firebase_core/firebase_core.dart' as fb;
 import 'package:kasie_transie_web/utils/emojis.dart';
 import 'package:kasie_transie_web/utils/functions.dart';
+import 'package:kasie_transie_web/utils/prefs.dart';
 import 'package:kasie_transie_web/widgets/splash_page.dart';
 import 'package:page_transition/page_transition.dart';
 import 'blocs/theme_bloc.dart';
 import 'firebase_options.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart' as dot;
 import 'maps/association_route_maps.dart';
+import 'package:kasie_transie_web/data/user.dart' as lib;
 
 late fb.FirebaseApp firebaseApp;
 fb.User? fbAuthedUser;
 var themeIndex = 0;
+lib.User? user;
 // String? locale;
 final mx = '🔵🔵🔵🔵🔵 KasieTransie Web Admin ${E.redDot}';
 
@@ -24,6 +27,11 @@ Future<void> main() async {
   debugPrint('\n\n$mx '
       ' Firebase App has been initialized: ${firebaseApp.name}, checking for authed current user\n');
   fbAuthedUser = fb.FirebaseAuth.instance.currentUser;
+
+  user = await prefs.getUser();
+  if (user != null) {
+    // fcmBloc.subscribeForOwnerMarshalOfficialAmbassador('KasieWeb');
+  }
 
   dot.dotenv.load();
   runApp(const KasieWeb());

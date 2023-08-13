@@ -4,20 +4,19 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:kasie_transie_web/email_auth_signin.dart';
 import 'package:kasie_transie_web/network.dart';
 import 'package:kasie_transie_web/utils/prefs.dart';
+import 'package:kasie_transie_web/widgets/drop_down_widgets.dart';
+
+import '../data/association_bag.dart';
+import '../data/route.dart' as lib;
 import '../data/route_bag.dart';
 import '../data/route_landmark.dart';
 import '../data/route_point.dart';
-import '../data/route.dart' as lib;
 import '../data/user.dart' as lib;
-import 'package:flutter_dotenv/flutter_dotenv.dart' as dot;
-
 import '../utils/emojis.dart';
 import '../utils/functions.dart';
-import '../widgets/multi_route_chooser.dart';
 import '../widgets/timer_widget.dart';
 
 class AssociationRouteMaps extends StatefulWidget {
@@ -59,6 +58,7 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
   int landmarkIndex = 0;
   var routes = <lib.Route>[];
   bool showSignIn = false;
+  late StreamSubscription<AssociationBag> assocBagStreamSubscription;
 
   @override
   void initState() {
@@ -67,16 +67,35 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
   }
 
   lib.User? user;
+  AssociationBag? bag;
+
   void _control() async {
     user = await prefs.getUser();
     if (user == null) {
       setState(() {
         showSignIn = true;
       });
+      return;
     }
+    _listen();
+    _startTimer();
+  }
+  void _listen() {
+    pp('$mm will listen to associationBagStream  ${E.heartBlue} ...');
+
+    assocBagStreamSubscription = networkHandler.associationBagStream.listen((event) {
+      pp('$mm associationBagStream delivered event ... ${E.heartBlue} ');
+      bag = event;
+      if (mounted) {
+        setState(() {
+
+        });
+      }
+    });
   }
 
-  void _getData() async {
+  void _getRouteBags() async {
+    user = await prefs.getUser();
     if (user == null) {
       return;
     }
@@ -89,21 +108,37 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
     try {
       pp('$mm ... calling network.getRouteBags ....!');
 
-      bags = await networkHandler.getRouteBags(associationId: user!.associationId!);
+      bags = await networkHandler.getRouteBags(
+          associationId: user!.associationId!);
       pp('$mm .... route bags: ${bags.length}, if > 0, we are in business!!');
-      for (var value in bags) {
-        pp('$mm route: ${value.route!.name} 🔵🔵'
-            '\n🔵 routeLandmarks: ${value.routeLandmarks.length}'
-            '\n🔵 routePoints: ${value.routePoints.length}'
-            '\n🔵 routeCities: ${value.routeCities.length}');
-        _filter();
-      }
+      // for (var value in bags) {
+      //   pp('$mm route: ${value.route!.name} 🔵🔵'
+      //       '\n🔵 routeLandmarks: ${value.routeLandmarks.length}'
+      //       '\n🔵 routePoints: ${value.routePoints.length}'
+      //       '\n🔵 routeCities: ${value.routeCities.length}');
+      // }
+      _filter();
     } catch (e) {
       pp(e.toString());
     }
     setState(() {
       busy = false;
     });
+  }
+
+  int intervalMinutes = 2;
+  int minutes = 30;
+
+  void _startTimer() async {
+    final startDate = DateTime.now()
+        .toUtc()
+        .subtract(Duration(minutes: minutes))
+        .toIso8601String();
+
+    networkHandler.startTimer(
+        associationId: user!.associationId!,
+        startDate: startDate,
+        intervalMinutes: intervalMinutes);
   }
 
   void _printRoutes() {
@@ -117,40 +152,18 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
   var bags = <RouteBag>[];
 
   Future<void> _filter() async {
-    routes.clear();
+    routesPicked.clear();
     for (var bag in bags) {
       if (bag.routeLandmarks.isNotEmpty) {
-        routes.add(bag.route!);
+        routesPicked.add(bag.route!);
       }
     }
     _printRoutes();
-    pp('$mm ... routes filtered: ${routes.length}');
+    pp('$mm ... routes filtered: ${routesPicked.length}');
     _buildAssociationMap();
   }
 
   var routesPicked = <lib.Route>[];
-
-  void _showBottomSheet() async {
-    final type = getThisDeviceType();
-    showModalBottomSheet(
-        context: context,
-        builder: (ctx) {
-          return Padding(
-            padding:
-                EdgeInsets.symmetric(horizontal: type == 'phone' ? 12.0 : 48),
-            child: MultiRouteChooser(
-              onRoutesPicked: (routesPicked) {
-                setState(() {
-                  this.routesPicked = routesPicked;
-                });
-                Navigator.of(context).pop();
-                _buildAssociationMap();
-              },
-              routes: routes,
-            ),
-          );
-        });
-  }
 
   @override
   void dispose() {
@@ -179,7 +192,7 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
       {required List<RouteLandmark> routeLandmarks,
       required List<BitmapDescriptor> icons,
       required String color}) async {
-    pp('$mm .......... _addLandmarks ....... .');
+    // pp('$mm .......... _addLandmarks ....... .');
     routeLandmarks.sort((a, b) => a.index!.compareTo(b.index!));
 
     int landmarkIndex = 0;
@@ -200,7 +213,7 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
   var widthIndex = 0;
 
   void _addPolyLine(List<RoutePoint> points, Color color) {
-    pp('$mm .......... _addPolyLine ....... points: ${points.length}.');
+    // pp('$mm .......... _addPolyLine ....... points: ${points.length}.');
     var mPoints = <LatLng>[];
     points.sort((a, b) => a.index!.compareTo(b.index!));
     for (var rp in points) {
@@ -250,28 +263,35 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
   }
 
   void _buildAssociationMap() async {
-    pp('$mm ... _buildHashMap: routes: ${routes.length}');
+    pp('\n\n\n$mm ... _buildAssociationMap: routes: ${routesPicked.length}');
     _markers.clear();
     _polyLines.clear();
-    for (var route in routes) {
+    var count = 0;
+    for (var route in routesPicked) {
       final points = getRoutePoints(route.routeId!);
       final marks = getLandmarks(route.routeId!);
       final icons = <BitmapDescriptor>[];
-      for (var i = 0; i < marks.length; i++) {
-        final icon = await getMarkerBitmap(80,
-            text: '${i + 1}',
-            color: route.color!,
-            fontSize: 14,
-            fontWeight: FontWeight.w900);
-        icons.add(icon);
-      }
+      await _getIcons(marks, route, icons);
       _addPolyLine(points, getColor(route.color!));
       _addLandmarks(routeLandmarks: marks, icons: icons, color: route.color!);
-      pp('$mm ... _buildAssociationMap: map has added: ${route.name} ');
+      count++;
+      pp('$mm ...route has been added: ${E.blueDot} #$count ${E.blueDot} route: ${route.name} ');
     }
 
-    if (routes.isNotEmpty) {
-      _zoomToBeginningOfRoute(routes.first);
+    if (routesPicked.isNotEmpty) {
+      _zoomToBeginningOfRoute(routesPicked.first);
+    }
+  }
+
+  Future<void> _getIcons(List<RouteLandmark> marks, lib.Route route,
+      List<BitmapDescriptor> icons) async {
+    for (var i = 0; i < marks.length; i++) {
+      final icon = await getMarkerBitmap(80,
+          text: '${i + 1}',
+          color: route.color!,
+          fontSize: 14,
+          fontWeight: FontWeight.w900);
+      icons.add(icon);
     }
   }
 
@@ -281,9 +301,21 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
   Widget build(BuildContext context) {
     return Scaffold(
         appBar: AppBar(
-          title: Text(
-            'Association Route Map ',
-            style: myTextStyleLarge(context),
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              Text(
+                'Association Route Map ',
+                style: myTextStyleLarge(context),
+              ),
+              gapW32,
+              ControlWidget(minutes: minutes, onMinutesPicked: (min) {
+                setState(() {
+                  minutes = min;
+                });
+                _startTimer();
+              }),
+            ],
           ),
         ),
         key: _key,
@@ -294,14 +326,14 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
             markers: _markers,
             circles: _circles,
             polylines: _polyLines,
-            initialCameraPosition: _myCurrentCameraPosition!,
+            initialCameraPosition: _myCurrentCameraPosition,
             onTap: (latLng) {
               pp('$mm .......... on map tapped : $latLng .');
             },
             onMapCreated: (GoogleMapController controller) {
               pp('$mm .......... on onMapCreated .....');
               _mapController.complete(controller);
-              _getData();
+              _getRouteBags();
             },
           ),
           Positioned(
@@ -330,19 +362,22 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
                   bottom: 200,
                   top: 200,
                   child: Center(
-                    child: EmailAuthSignin(onGoodSignIn: () {
+                    child: EmailAuthSignin(onGoodSignIn: (mUser) {
                       pp('$mm ......... sign in COOL, will get route data ${E.leaf}');
                       setState(() {
                         showSignIn = false;
+                        user = mUser;
                       });
-                      _getData();
+                      _getRouteBags();
+                      _control();
                     }, onSignInError: () {
                       pp('$mm sign in error ${E.redDot}');
                       if (mounted) {
                         showSnackBar(
                             backgroundColor: Colors.red,
                             textStyle: const TextStyle(color: Colors.white),
-                            message: 'Sign In failed: $e', context: context);
+                            message: 'Sign In failed: $e',
+                            context: context);
                       }
                     }),
                   ))
@@ -365,6 +400,45 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
                   ))
               : gapW4,
         ]));
+  }
+}
+
+class ControlWidget extends StatelessWidget {
+  const ControlWidget(
+      {super.key, required this.minutes, required this.onMinutesPicked});
+
+  final int minutes;
+  final Function(int) onMinutesPicked;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Text('Number of Minutes'),
+        gapW32,
+        Text(
+          '$minutes',
+          style: myTextStyleMediumLargeWithColor(
+              context, Theme.of(context).primaryColor, 20),
+        ),
+        gapW32,
+        NumberDropDown(
+          onNumberPicked: (number) {
+            var m = number;
+            if (m == 0) {
+              m = 30;
+            } else {
+              m = number;
+            }
+            onMinutesPicked(m);
+          },
+          color: Theme.of(context).primaryColorLight,
+          count: 12,
+          fontSize: 16,
+          multiplier: 30,
+        ),
+      ],
+    );
   }
 }
 

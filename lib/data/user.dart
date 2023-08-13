@@ -11,13 +11,14 @@ class User {
   String? associationName;
   String? fcmToken;
   String? password;
-  String? email;
+  String? email, userType;
   String? cellphone, thumbnailUrl, imageUrl;
 
   User({
       required this.userId,
       required this.firstName,
       required this.lastName,
+      required this.userType,
       required this.gender,
       required this.countryId,
       required this.associationId,
@@ -31,5 +32,7 @@ class User {
 
   factory User.fromJson(Map<String, dynamic> json) => _$UserFromJson(json);
   Map<String, dynamic> toJson() => _$UserToJson(this);
-
+  String getName() {
+    return '$firstName $lastName';
+  }
 }
