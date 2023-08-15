@@ -1,12 +1,19 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
-import 'dart:math';
 import 'dart:html';
 import 'dart:js' as js;
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:kasie_transie_web/blocs/fcm_bloc.dart';
+import 'package:kasie_transie_web/data/ambassador_passenger_count.dart';
+import 'package:kasie_transie_web/data/commuter_request.dart';
+import 'package:kasie_transie_web/data/dispatch_record.dart';
+import 'package:kasie_transie_web/data/location_request.dart';
+import 'package:kasie_transie_web/data/vehicle_arrival.dart';
+import 'package:kasie_transie_web/data/vehicle_departure.dart';
 import 'package:kasie_transie_web/data/vehicle_heartbeat.dart';
 import 'package:kasie_transie_web/email_auth_signin.dart';
 import 'package:kasie_transie_web/network.dart';
@@ -15,6 +22,7 @@ import 'package:kasie_transie_web/widgets/association_bag_widget.dart';
 import 'package:kasie_transie_web/widgets/drop_down_widgets.dart';
 
 import '../data/association_bag.dart';
+import '../data/location_response.dart';
 import '../data/route.dart' as lib;
 import '../data/route_bag.dart';
 import '../data/route_landmark.dart';
@@ -22,15 +30,19 @@ import '../data/route_point.dart';
 import '../data/user.dart' as lib;
 import '../utils/emojis.dart';
 import '../utils/functions.dart';
+import '../widgets/language_and_color_chooser.dart';
 import '../widgets/timer_widget.dart';
 
 class GetToken {
   static Future<String> getToken() async {
-
-    String associationId = '2f3faebd-6159-4b03-9857-9dad6d9a82ac'; // Replace with actual associationId
+    String associationId =
+        '2f3faebd-6159-4b03-9857-9dad6d9a82ac'; // Replace with actual associationId
     // Call the JavaScript function to send associationId and get token
     pp('GetToken: calling Javascript: 🔴 🔴 🔴 🔴 ..... sending associationId: 💪 $associationId 💪');
-    js.context.callMethod('fetchTokenAndSend', [associationId]);
+    final user = await prefs.getUser();
+    if (user != null) {
+      js.context.callMethod('fetchTokenAndSend', [associationId, user.userId]);
+    }
 
     return "We good, Boss!";
   }
@@ -82,30 +94,53 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
   int landmarkIndex = 0;
   var routes = <lib.Route>[];
   bool showSignIn = false;
+
   late StreamSubscription<AssociationBag> assocBagStreamSubscription;
-  late StreamSubscription<List<VehicleHeartbeat>> heartbeatStreamSubscription;
+  late StreamSubscription<VehicleHeartbeat> heartbeatStreamSubscription;
+  late StreamSubscription<VehicleArrival> arrivalStreamSubscription;
+  late StreamSubscription<VehicleDeparture> departureStreamSubscription;
+  late StreamSubscription<DispatchRecord> dispatchStreamSubscription;
+  late StreamSubscription<AmbassadorPassengerCount> passengerStreamSubscription;
+  late StreamSubscription<CommuterRequest> commuterStreamSubscription;
+  late StreamSubscription<LocationRequest> locationRequestStreamSubscription;
+  late StreamSubscription<LocationResponse> locationResponseStreamSubscription;
 
   String? webToken;
+
   @override
   void initState() {
     super.initState();
     _control();
   }
 
+  @override
+  void dispose() {
+    assocBagStreamSubscription.cancel();
+    heartbeatStreamSubscription.cancel();
+    arrivalStreamSubscription.cancel();
+    departureStreamSubscription.cancel();
+    dispatchStreamSubscription.cancel();
+    passengerStreamSubscription.cancel();
+    commuterStreamSubscription.cancel();
+    locationRequestStreamSubscription.cancel();
+    locationResponseStreamSubscription.cancel();
+    super.dispose();
+  }
+
   lib.User? user;
   AssociationBag? bag;
 
   void _control() async {
-    _setupMessagingListeners();
-    webToken = await GetToken.getToken();
-    pp('$mm ... webToken acquired via JavaScript: ${E.blueDot} $webToken');
     user = await prefs.getUser();
-
     if (user == null) {
       setState(() {
         showSignIn = true;
       });
       return;
+    } else {
+      GetToken.getToken();
+      fcmBloc.initialize();
+      _setupMessagingListeners();
     }
     _listen();
     _startTimer();
@@ -125,16 +160,63 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
         pp('$mm Received message from service worker: ${E.leaf} $message ${E.leaf}');
         // Handle the FCM message here
       });
+      //
+      // Set up a storage event listener to listen for changes in localStorage
+      window.addEventListener('storage', (event) {
+        pp('$mm ...  window.addEventListener storage popped: $event');
+        // if (event.target!..storageArea == localStorage &&
+        //     event.key == 'fcm_message' &&
+        //     event.newValue != null) {
+        //   final payload = Map<String, dynamic>.from(jsonDecode(event.newValue));
+        //
+        //   // Handle the FCM message payload received from the service worker
+        //   _handleFcmMessage(payload);
+        //
+        //   // Clear the stored payload in localStorage
+        //   localStorage.removeItem('fcm_message');
+        // }
+      });
+
+      // Notify the service worker that the Dart app is ready
+      // window.navigator.serviceWorker!.ready.then((registration) {
+      //   registration.active!.postMessage('Dart app is ready');
+      // });
+      window.navigator.serviceWorker!.ready.then((registration) {
+        pp(' ... registration.active!.state: ${registration.active!.state}');
+        registration.active!.postMessage('register');
+      });
+      window.onMessage.listen((event) {
+        final dynamic message = event.data;
+        pp('$mm ... message received, will be shipped to FCMBloc');
+        final m = message['mData']['data'];
+
+        fcmBloc.processFCMessage(convertDynamicMap(m));
+
+      });
     } else {
       pp('$mm ... _setupMessagingListeners NOT set up. ${E.redDot} ${E.redDot} ');
       return;
     }
     pp('$mm Service Worker set up to receive messages ${E.leaf}${E.leaf}${E.leaf}');
   }
+  Map<String, dynamic> convertDynamicMap(Map<dynamic, dynamic> dynamicMap) {
+    final convertedMap = <String, dynamic>{};
+    dynamicMap.forEach((key, value) {
+      if (key is String) {
+        convertedMap[key] = value;
+      } else {
+        // Handle key conversion if needed
+        convertedMap[key.toString()] = value;
+      }
+    });
+    return convertedMap;
+  }
 
   List<VehicleHeartbeat> heartbeats = [];
+
   void _listen() {
-    pp('$mm will listen to associationBagStream  ${E.heartBlue} ...');
+    pp('$mm will listen to fcm messaging ... '
+        '${E.heartBlue} ${E.heartBlue} ${E.heartBlue} ...');
 
     assocBagStreamSubscription =
         networkHandler.associationBagStream.listen((event) {
@@ -146,11 +228,51 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
       }
     });
 
-    heartbeatStreamSubscription =
-        networkHandler.heartbeatStream.listen((event) {
-      pp('$mm associationBagStream delivered event ... ${E.heartBlue} ');
-      heartbeats = event;
+    heartbeatStreamSubscription = fcmBloc.heartbeatStreamStream.listen((event) {
+      pp('$mm heartbeatStreamStream delivered event ... ${E.heartBlue} ');
+      heartbeats.add(event);
       _putHeartbeatsOnMap();
+    });
+
+    arrivalStreamSubscription = fcmBloc.vehicleArrivalStream.listen((event) {
+      pp('$mm ... vehicleArrivalStream delivered. ');
+      if (mounted) {
+        setState(() {});
+      }
+    });
+    departureStreamSubscription =
+        fcmBloc.vehicleDepartureStream.listen((event) {
+      pp('$mm ... vehicleDepartureStream delivered. ');
+      if (mounted) {
+        setState(() {});
+      }
+    });
+    dispatchStreamSubscription = fcmBloc.dispatchStream.listen((event) {
+      pp('$mm ... dispatchStream delivered. ');
+      if (mounted) {
+        setState(() {});
+      }
+    });
+    passengerStreamSubscription = fcmBloc.passengerCountStream.listen((event) {
+      pp('$mm ... passengerCountStream delivered. ');
+      if (mounted) {
+        setState(() {});
+      }
+    });
+    locationResponseStreamSubscription =
+        fcmBloc.locationResponseStream.listen((event) {
+      pp('$mm ... locationResponseStream delivered. ');
+      if (mounted) {
+        setState(() {});
+      }
+    });
+
+    locationRequestStreamSubscription =
+        fcmBloc.locationRequestStream.listen((event) {
+      pp('$mm ... locationRequestStream delivered. ');
+      if (mounted) {
+        setState(() {});
+      }
     });
   }
 
@@ -211,7 +333,7 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
     });
   }
 
-  int intervalSeconds = 30;
+  int intervalSeconds = 600;
   int minutes = 30;
   bool _showBag = false;
 
@@ -250,13 +372,6 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
   }
 
   var routesPicked = <lib.Route>[];
-
-  @override
-  void dispose() {
-    heartbeatStreamSubscription.cancel();
-    assocBagStreamSubscription.cancel();
-    super.dispose();
-  }
 
   Color newColor = Colors.black;
   String? stringColor;
@@ -385,6 +500,8 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
 
   int distanceInKM = 100;
 
+  bool _showColorSheet = false;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -394,7 +511,8 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
             children: [
               Text(
                 'Association Route Map ',
-                style: myTextStyleLarge(context),
+                style: myTextStyleMediumLargeWithColor(
+                    context, Theme.of(context).primaryColor, 32),
               ),
               gapW32,
               ControlWidget(
@@ -407,6 +525,18 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
                   }),
             ],
           ),
+          actions: [
+            IconButton(
+                onPressed: () {
+                  setState(() {
+                    _showColorSheet = true;
+                  });
+                },
+                icon: Icon(
+                  Icons.color_lens_outlined,
+                  color: Theme.of(context).primaryColor,
+                )),
+          ],
         ),
         key: _key,
         drawer: Drawer(
@@ -537,6 +667,22 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
                     width: 400,
                   ))
               : gapW32,
+          _showColorSheet
+              ? Positioned(
+                  child: Center(
+                  child: SizedBox(
+                    width: 500,
+                    height: 500,
+                    child: LanguageAndColorChooser(
+                      onLanguageChosen: (c) {
+                        pp('$mm ... something chosen: $c');
+                        _showColorSheet = false;
+                        _control();
+                      },
+                    ),
+                  ),
+                ))
+              : gapW8,
           busy
               ? Positioned(
                   left: 400,

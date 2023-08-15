@@ -40,8 +40,8 @@
   <!-- This script adds the flutter initialization JS code -->
   <script src="flutter.js" defer></script>
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDcVWgFzQtnblu5VTt-CdYXMjKJI8ZJNkg"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.0.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.0.2/firebase-messaging-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.1.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.1.0/firebase-messaging-compat.js"></script>
 
 </head>
 
@@ -115,9 +115,12 @@
 
     messaging.onMessage(function (payload) {
       console.log(
-        "[firebase-messaging-sw.js] 🔴 🔴 🔴 🔴 🔴 Received foreground message ",
+        "[index.html] 🔴 🔴 🔴  Received foreground message, what do I do now, Boss? - call Dart! Fool! 🔴 🔴",
         payload
       );
+
+      callDartMethod(payload);
+
     });
     console.log('🔷 🔷 🔷 Firebase onMessage seems alright');
     // Function to request permission and get the token
@@ -128,7 +131,6 @@
           console.log('💪💪💪💪💪💪💪 Notification permission granted... Yay!');
           const token = await messaging.getToken({ vapidKey: 'BA_kOc-IQrUlbie9djVLR-eU6ljeCVizMVs9hulFT7ed6ywWbQAZPWBwZWld15XAmdNPFewiFS5-J3xXqvU1lOs' });
           console.log('🔴 🔴 🔴 FCM token:', token);
-          //sendTokenToServer(token);
           mToken = token;
         } else {
           console.log('🔴 🔴 Notification permission denied.  🔴 🔴');
@@ -139,48 +141,16 @@
     }
 
     var mToken;
-    function getFcmToken() {
-      return new Promise(function (resolve, reject) {
-        firebase.messaging().getToken()
-          .then(function (token) {
-            console.log(`💪💪💪💪💪💪💪 token obtained: ${token.toString()} Yay!`);
-            if (token) {
-              resolve(token.toString()); // Convert JsObject to a string
-            } else {
-              console.log('🔴 🔴 🔴 FCM token not found');
-
-              reject('No FCM token available.');
-            }
-          })
-          .catch(function (error) {
-            reject('Error getting FCM token: ' + error);
-          });
-      });
-    }
-
-    // // Create a Dart-compatible function
-    // window.getFcmTokenDart = async function () {
-    //   try {
-    //     console.log('🔴 🔴 🔴 getFcmTokenDart ........');
-    //     const token = getFcmToken();
-    //     console.log('🔴 🔴 🔴 getFcmTokenDart: FCM token:', token);
-
-    //     return token;
-    //   } catch (error) {
-    //     return 'Error from JavaScript: ' + error;
-    //   }
-    // };
-
 
     // Function to fetch token and send to server
-    function fetchTokenAndSend(associationId) {
+    function fetchTokenAndSend(associationId, userId) {
       console.log('index.html: 🔴 🔴 🔴 fetchTokenAndSend ........');
       firebase.messaging().getToken()
         .then(function (token) {
           if (token) {
             // Send the token and gameId to your server
-            console.log('index.html:🔴 🔴 🔴 fetchTokenAndSend : Send the token and associationId to backend: ' + associationId + ' ' + token);
-            sendTokenToServer(associationId, token);
+            console.log('index.html:🔴 🔴 🔴 fetchTokenAndSend : Send the token and associationId to backend, no!: ' + associationId + '\ntoken: ' + token);
+            sendTokenToServer(associationId, userId, token);
           } else {
             console.log('No FCM token available. WTF?????');
           }
@@ -189,19 +159,30 @@
           console.error('Error getting FCM token:', error);
         });
     }
-    function sendTokenToServer(associationId, token) {
+    //
+    function callDartMethod(mData) {
+      console.log('🔴 🔴 🔴 callDartMethod to post fcm data started ...');
+      const message = {
+        type: 'CALL_DART_METHOD',
+        mData: mData,
+      };
+
+      // Post the message to the Dart app
+      window.parent.postMessage(message, '*');
+    }
+    //
+    function sendTokenToServer(associationId, userId, token) {
       console.log('index.html:🔴 🔴 🔴 ... sendTokenToServer: Kasie here we come! ........');
 
-      // Replace this with your server endpoint
-      const serverUrl = 'http://localhost:8080/receiveToken';
+      //   // Replace this with your server endpoint
+      const serverUrl = 'http://localhost:8080/addAssociationToken?associationId=' + associationId + '&token=' + token + '&userId=' + userId;
 
-      // Make a POST request to send the token to Kasie backend
+      // Make a GET request to send the token to KasieTransie backend
       fetch(serverUrl, {
-        method: 'POST',
+        method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ token: token, associationId: associationId }),
       })
         .then(response => {
           if (response.ok) {
@@ -215,8 +196,8 @@
         });
     }
 
+
   </script>
-</script>
 </body>
 
 </html>

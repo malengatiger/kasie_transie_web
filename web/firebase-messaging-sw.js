@@ -25,38 +25,46 @@ console.log(
   `💪💪💪💪💪💪💪  inside sw.js 🔴 firebase messaging has been setup: ${messaging.appId}`
 );
 
-// Retrieve an instance of Firebase Messaging so that it can handle background
-// messages.
-// const messaging = getMessaging(firebaseApp);
-// const analytics = getAnalytics(app);
-
-console.log(`💪💪💪💪💪💪💪  inside sw.js  🔴 firebase has been setup`);
 //
 console.log(
   `💪💪💪💪💪💪💪 inside sw.js  🔴 setting up background messaging .....`
 );
+//
+function callDartMethod(mData) {
+  console.log('🔴 🔴 🔴 callDartMethod to post fcm data started ...');
+  const message = {
+    type: 'CALL_DART_METHOD',
+    mData: mData,
+  };
+
+  // Post the message to the Dart app
+  window.parent.postMessage(message, '*');
+}
 
 messaging.onBackgroundMessage(function (payload) {
   console.log(
-    "[firebase-messaging-sw.js] 🔴 🔴 🔴 🔴 🔴 Received background message ",
+    "[firebase-messaging-sw.js] 🔴 🔴 🔴 🔴 🔴 Received background message! Heita! ",
     payload
   );
-  // Customize notification here
-  const notificationTitle = "Background Message Title";
-  const notificationOptions = {
-    body: "Background Message body.",
-    icon: "/firebase-logo.png",
-  };
-  console.log("inside sw.js  🔴 Setting up to post message: " + payload);
-  console.log("inside sw.js  🔴 clients: " + self.clients);
 
-  self.clients.matchAll().then((clients) => {
-    for (const client of clients) {
-      client.postMessage(JSON.stringify(payload));
-    }
-  });
+  console.log("inside sw.js  🔴 calling dart with FCM payload ... ");
 
-  self.registration.showNotification(notificationTitle, notificationOptions);
+  callDartMethod(payload);
+
+  // console.log("inside sw.js  🔴 clients: " + self.clients);
+  // Store the payload in localStorage ...
+  // localStorage.setItem('fcm_message', JSON.stringify(payload));
+  // console.log(`💪💪💪💪💪💪💪  inside sw.js  🔴 payload written to storage`);
+
+  // self.clients.matchAll().then((clients) => {
+  //   for (const client of clients) {
+  //     console.log(`💪💪💪💪💪💪💪  inside sw.js  🔴 about to client.postMessage`);
+
+  //     client.postMessage({ type: 'FCM_MESSAGE', payload: payload });
+  //   }
+  // });
+ //
+  // self.registration.showNotification(notificationTitle, notificationOptions);
 });
 console.log(
   `💪💪💪💪💪💪💪 inside sw.js 🔴  setting up background messaging seems OK .....`

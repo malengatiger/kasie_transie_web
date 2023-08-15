@@ -4,6 +4,7 @@ import 'dart:convert';
 
 import 'package:archive/archive_io.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:kasie_transie_web/data/user.dart';
@@ -13,7 +14,6 @@ import 'package:kasie_transie_web/utils/functions.dart';
 
 import 'data/association_bag.dart';
 import 'data/route_bag.dart';
-import 'data/user.dart' as lib;
 import 'environment.dart';
 import 'kasie_exception.dart';
 
@@ -40,7 +40,7 @@ class NetworkHandler {
     return token;
   }
 
-  Future<lib.User?> getUserById(String userId) async {
+  Future<User?> getUserById(String userId) async {
     final cmd = '${KasieEnvironment.getUrl()}getUserById?userId=$userId';
     pp('$xyz getUserById .........userId: $userId  ${E.blueDot} $cmd');
     String? token = await getAuthToken();
@@ -142,11 +142,6 @@ class NetworkHandler {
   Stream<AssociationBag> get associationBagStream =>
       _bagStreamController.stream;
 
-  final StreamController<List<VehicleHeartbeat>> _heartbeatStreamController =
-      StreamController.broadcast();
-
-  Stream<List<VehicleHeartbeat>> get heartbeatStream =>
-      _heartbeatStreamController.stream;
 
   void startTimer(
       {required String associationId,
@@ -160,6 +155,29 @@ class NetworkHandler {
     });
   }
 
+  Future addAssociationToken(String associationId, String userId) async {
+    final fcmToken = await FirebaseMessaging.instance.getToken();
+    if (fcmToken == null) {
+      pp('$xyz fcmToken is null, quit! ${E.redDot}${E.redDot}${E.redDot}');
+      return null;
+    } else {
+      pp('$xyz fcmToken is just fine! ${E.heartRed}'
+          '\n$fcmToken ${E.heartRed}');
+    }
+    final authToken = await getAuthToken();
+    if (authToken == null) {
+      pp('$xyz authToken is null, quit! ${E.redDot}${E.redDot}${E.redDot}');
+      return null;
+    } else {
+      pp('$xyz authToken is just fine! ${E.heartRed}');
+    }
+    final url =
+        '${KasieEnvironment.getUrl()}addAssociationToken?associationId=$associationId'
+        '&userId=$userId&token=$fcmToken';
+    final res = await httpGet(url, authToken);
+    pp('$xyz AssociationToken added: $res ${E.heartRed}');
+
+  }
   Future<void> _handleBag(String associationId, String startDate) async {
     pp('$xyz _handleBag ... ${E.heartRed}');
 
@@ -180,7 +198,6 @@ class NetworkHandler {
     final list = map.values.toList();
     pp('$xyz distinct vehicle last heartbeats: ${list.length} ... ${E.heartRed}');
 
-    _heartbeatStreamController.sink.add(list);
   }
 
   void stopTimer() {
