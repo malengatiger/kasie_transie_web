@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
@@ -11,6 +12,10 @@ final TranslationHandler translator = TranslationHandler._instance;
 class TranslationHandler {
   static final TranslationHandler _instance = TranslationHandler._internal();
 
+  StreamController<bool> translationStreamController = StreamController.broadcast();
+
+  Stream<bool> get translationStream => translationStreamController.stream;
+
   factory TranslationHandler() {
     return _instance;
   }
@@ -18,7 +23,7 @@ class TranslationHandler {
   TranslationHandler._internal() {
     // initialization logic
   }
-  final android = Platform.isAndroid;
+  // final android = Platform.isAndroid;
   var localeMap = HashMap<String, String>();
   static const mm = '🌎🔵 mtX: ';
   String? currentLocale;

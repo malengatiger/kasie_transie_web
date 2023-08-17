@@ -29,7 +29,7 @@ class _SplashWidgetState extends State<SplashWidget> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20.0),
       child: AnimatedContainer(
-        // width: 300, height: 300,
+        width: 600, height: 300,
         curve: Curves.easeInOutCirc,
         duration: const Duration(milliseconds: 3000),
         child: Card(

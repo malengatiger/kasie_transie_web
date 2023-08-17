@@ -1,3 +1,5 @@
+
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -41,68 +43,70 @@ class FcmBloc {
     pp('$mm ... initialize FCM COMPLETE! will listen to all FCM messages ${E.blueDot} ');
   }
 
-
   void processFCMessage(Map<String, dynamic> data) {
     final type = getMessageType(data);
-    pp('$mm ... processFCMessage: message type: ${E.blueDot} $type');
+    pp('$mm ... processFCMessage: message type: ${E.blueDot}${E.blueDot}${E.blueDot} $type');
 
     switch (type) {
       case Constants.heartbeat:
-        final m = VehicleHeartbeat.fromJson(data);
+        final json = jsonDecode(data[type]);
+        final m = VehicleHeartbeat.fromJson(json);
         _heartbeatStreamController.sink.add(m);
         break;
       case Constants.locationResponse:
-        
-        final m = LocationResponse.fromJson(data);
+        final json = jsonDecode(data[type]);
+        final m = LocationResponse.fromJson(json);
         _locationResponseStreamController.sink.add(m);
         break;
       case Constants.dispatchRecord:
-        
-        final m = DispatchRecord.fromJson(data);
+        final json = jsonDecode(data[type]);
+        final m = DispatchRecord.fromJson(json);
         _dispatchStreamController.sink.add(m);
         break;
       case Constants.vehicleArrival:
-        
-        final m = VehicleArrival.fromJson(data);
+        final json = jsonDecode(data[type]);
+        final m = VehicleArrival.fromJson(json);
         _vehicleArrivalStreamController.sink.add(m);
         break;
       case Constants.vehicleChanges:
         //todo - implement vehicle changes message
         break;
       case Constants.vehicleDeparture:
-        
-        final m = VehicleDeparture.fromJson(data);
+        final json = jsonDecode(data[type]);
+        final m = VehicleDeparture.fromJson(json);
         _vehicleDepartureStreamController.sink.add(m);
         break;
       case Constants.vehicleMediaRequest:
-        
-        final m = VehicleMediaRequest.fromJson(data);
+        final json = jsonDecode(data[type]);
+        final m = VehicleMediaRequest.fromJson(json);
         _vehicleMediaRequestStreamController.sink.add(m);
         break;
       case Constants.passengerCount:
-        
-        final m = AmbassadorPassengerCount.fromJson(data);
+        final json = jsonDecode(data[type]);
+        final m = AmbassadorPassengerCount.fromJson(json);
         _passengerCountStreamController.sink.add(m);
         break;
       case Constants.commuterRequest:
-        
-        final m = CommuterRequest.fromJson(data);
+        final json = jsonDecode(data[type]);
+        final m = CommuterRequest.fromJson(json);
         _commuterRequestStreamController.sink.add(m);
         break;
       case Constants.locationRequest:
-        
-        final m = LocationRequest.fromJson(data);
+        final json = jsonDecode(data[type]);
+        final m = LocationRequest.fromJson(json);
         _locationRequestStreamController.sink.add(m);
         break;
       case Constants.routeUpdateRequest:
-        
-        final m = RouteUpdateRequest.fromJson(data);
+        final json = jsonDecode(data[type]);
+        final m = RouteUpdateRequest.fromJson(json);
         _routeUpdateRequestStreamController.sink.add(m);
         //todo - go ahead and refresh the route
         break;
       case Constants.userGeofenceEvent:
         //todo - implement userGeofenceEvent messaging - HOT, may not do it!
         break;
+      default:
+        pp('${E.redDot}${E.redDot}${E.redDot} Unknown type: please check: $data');
     }
   }
 

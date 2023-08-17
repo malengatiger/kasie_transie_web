@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_analog_clock/flutter_analog_clock.dart';
+import 'package:kasie_transie_web/l10n/strings_helper.dart';
 
 import '../utils/functions.dart';
 
@@ -31,6 +32,7 @@ class TimerWidgetState extends State<TimerWidget>
     startTimer();
   }
 
+
   void startTimer() {
     pp('$mm ... timer starting ....');
     timer = Timer.periodic(const Duration(milliseconds: 1000), (timer) {
@@ -49,9 +51,11 @@ class TimerWidgetState extends State<TimerWidget>
   @override
   Widget build(BuildContext context) {
     final date = DateTime.now();
+    final width = MediaQuery.of(context).size.width;
+    final height = MediaQuery.of(context).size.height;
     return SizedBox(
-      width: 400,
-      height: 600,
+      width: width/3,
+      height: height/2,
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Card(
@@ -59,32 +63,26 @@ class TimerWidgetState extends State<TimerWidget>
           elevation: 12,
           child: SingleChildScrollView(
             child: Padding(
-              padding: const EdgeInsets.all(20.0),
+              padding: const EdgeInsets.all(16.0),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  const SizedBox(
-                    height: 32,
-                  ),
+                 gapH16,
                   Text(
                     widget.title,
                     style: myTextStyleMediumLargeWithColor(
-                        context, Colors.grey.shade700, 16),
+                        context, Theme.of(context).primaryColorLight, 24),
                   ),
-                  const SizedBox(
-                    height: 32,
-                  ),
+                 gapH8,
                   widget.subTitle == null
                       ? const SizedBox()
                       : Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 32.0),
+                          padding: const EdgeInsets.symmetric(horizontal: 12.0),
                           child: Text(widget.subTitle!),
                         ),
-                  const SizedBox(
-                    height: 48,
-                  ),
-                  SizedBox(width: 120, height: 120,
+                  gapH32,gapH32,
+                  SizedBox(width: 128, height: 128,
                     child: AnalogClock(
                       dateTime: date,
                       isKeepTime: true,
@@ -94,17 +92,13 @@ class TimerWidgetState extends State<TimerWidget>
                       ),
                     ),
                   ),
-                  const SizedBox(
-                    height: 48,
-                  ),
+                 gapH32,
                   Text(
                     getFormattedTime(timeInSeconds: elapsed),
                     style: myTextStyleMediumLargeWithColor(
-                        context, Theme.of(context).primaryColor, 48),
+                        context, Theme.of(context).primaryColor, 32),
                   ),
-                  const SizedBox(
-                    height: 48,
-                  ),
+                  gapH16,
                 ],
               ),
             ),

@@ -16,11 +16,16 @@ import 'package:kasie_transie_web/data/vehicle_arrival.dart';
 import 'package:kasie_transie_web/data/vehicle_departure.dart';
 import 'package:kasie_transie_web/data/vehicle_heartbeat.dart';
 import 'package:kasie_transie_web/email_auth_signin.dart';
+import 'package:kasie_transie_web/l10n/strings_helper.dart';
+import 'package:kasie_transie_web/l10n/translation_handler.dart';
 import 'package:kasie_transie_web/network.dart';
 import 'package:kasie_transie_web/utils/prefs.dart';
 import 'package:kasie_transie_web/widgets/association_bag_widget.dart';
+import 'package:kasie_transie_web/widgets/color_grid.dart';
 import 'package:kasie_transie_web/widgets/drop_down_widgets.dart';
+import 'package:kasie_transie_web/widgets/live_activities.dart';
 
+import '../blocs/theme_bloc.dart';
 import '../data/association_bag.dart';
 import '../data/location_response.dart';
 import '../data/route.dart' as lib;
@@ -28,9 +33,10 @@ import '../data/route_bag.dart';
 import '../data/route_landmark.dart';
 import '../data/route_point.dart';
 import '../data/user.dart' as lib;
+import '../utils/color_and_locale.dart';
 import '../utils/emojis.dart';
 import '../utils/functions.dart';
-import '../widgets/language_and_color_chooser.dart';
+import '../widgets/language_list.dart';
 import '../widgets/timer_widget.dart';
 
 class GetToken {
@@ -107,10 +113,29 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
 
   String? webToken;
 
+  String assRouteOperations = 'assRouteOperations';
+  String changeColor = 'changeColor';
+  String changeLanguage = 'changeLanguage';
+  String commutersText = 'commuters';
+  String arrivalsText = 'arrivals';
+  String departuresText = 'departures';
+  String dispatchesText = 'dispatches';
+  String timeLastUpdate = 'timeLastUpdate';
+  String emailAddress = 'emailAddress';
+  String password = 'password';
+  String kasieSignIn = 'kasieSignIn';
+  String sendSignIn = 'sendSignIn';
+
   @override
   void initState() {
     super.initState();
     _control();
+  }
+
+  StringsHelper? stringsHelper;
+  Future _setTexts() async {
+    stringsHelper = await StringsHelper.getTranslatedTexts();
+    setState(() {});
   }
 
   @override
@@ -132,6 +157,8 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
 
   void _control() async {
     user = await prefs.getUser();
+    _getColors();
+    await _setTexts();
     if (user == null) {
       setState(() {
         showSignIn = true;
@@ -161,21 +188,6 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
         // Handle the FCM message here
       });
       //
-      // Set up a storage event listener to listen for changes in localStorage
-      window.addEventListener('storage', (event) {
-        pp('$mm ...  window.addEventListener storage popped: $event');
-        // if (event.target!..storageArea == localStorage &&
-        //     event.key == 'fcm_message' &&
-        //     event.newValue != null) {
-        //   final payload = Map<String, dynamic>.from(jsonDecode(event.newValue));
-        //
-        //   // Handle the FCM message payload received from the service worker
-        //   _handleFcmMessage(payload);
-        //
-        //   // Clear the stored payload in localStorage
-        //   localStorage.removeItem('fcm_message');
-        // }
-      });
 
       // Notify the service worker that the Dart app is ready
       // window.navigator.serviceWorker!.ready.then((registration) {
@@ -185,13 +197,14 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
         pp(' ... registration.active!.state: ${registration.active!.state}');
         registration.active!.postMessage('register');
       });
+
+      //listen for fcm messages
       window.onMessage.listen((event) {
         final dynamic message = event.data;
         pp('$mm ... message received, will be shipped to FCMBloc');
         final m = message['mData']['data'];
-
+        // myPrettyJsonPrint(m);
         fcmBloc.processFCMessage(convertDynamicMap(m));
-
       });
     } else {
       pp('$mm ... _setupMessagingListeners NOT set up. ${E.redDot} ${E.redDot} ');
@@ -199,6 +212,7 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
     }
     pp('$mm Service Worker set up to receive messages ${E.leaf}${E.leaf}${E.leaf}');
   }
+
   Map<String, dynamic> convertDynamicMap(Map<dynamic, dynamic> dynamicMap) {
     final convertedMap = <String, dynamic>{};
     dynamicMap.forEach((key, value) {
@@ -219,10 +233,13 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
         '${E.heartBlue} ${E.heartBlue} ${E.heartBlue} ...');
 
     assocBagStreamSubscription =
-        networkHandler.associationBagStream.listen((event) {
+        networkHandler.associationBagStream.listen((event) async {
       pp('$mm associationBagStream delivered event ... ${E.heartBlue} ');
       bag = event;
       _showBag = true;
+      final d = DateTime.now().toLocal().toIso8601String();
+      final cl = await prefs.getColorAndLocale();
+      date = await getFmtDate(d, cl.locale, context);
       if (mounted) {
         setState(() {});
       }
@@ -231,7 +248,7 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
     heartbeatStreamSubscription = fcmBloc.heartbeatStreamStream.listen((event) {
       pp('$mm heartbeatStreamStream delivered event ... ${E.heartBlue} ');
       heartbeats.add(event);
-      _putHeartbeatsOnMap();
+      _addHeartbeatToHash(event);
     });
 
     arrivalStreamSubscription = fcmBloc.vehicleArrivalStream.listen((event) {
@@ -276,17 +293,36 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
     });
   }
 
-  void _putHeartbeatsOnMap() async {
-    pp('$mm ... _putHeartbeatsOnMap ... ${heartbeats.length}');
+  List<VehicleHeartbeat> heartbeatsToDisplay = [];
+  void _addHeartbeatToHash(VehicleHeartbeat heartbeat) {
+    var hash = HashMap<String, VehicleHeartbeat>();
+    for (var value in heartbeats) {
+      hash[value.vehicleId!] = value;
+    }
+    heartbeatsToDisplay.clear();
+    heartbeatsToDisplay = hash.values.toList();
+    _putHeartbeatsOnMap(heartbeat);
+  }
+
+  void _putHeartbeatsOnMap(VehicleHeartbeat latestHeartbeat) async {
+    pp('$mm ... _putHeartbeatsOnMap ... ${heartbeatsToDisplay.length}');
     _heartbeatMarkers.clear();
-    for (var hb in heartbeats) {
+    for (var hb in heartbeatsToDisplay) {
       pp('$mm ... putting ${hb.vehicleReg} on map ... ${hb.position!.coordinates}');
       final icon = await getTaxiMapIcon(
-          iconSize: 128,
+          iconSize: 108,
           text: '${hb.vehicleReg}',
           style: const TextStyle(
-              color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900),
+              color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900),
           path: 'assets/car2.png');
+      final icon2 = await getVehicleMarkerBitmap(
+        148,
+        color: 'black',
+        borderColor: Colors.white,
+        fontSize: 12,
+        fontWeight: FontWeight.w900,
+        text: '${hb.vehicleReg}',
+      );
       _heartbeatMarkers.add(Marker(
           markerId: MarkerId('${hb.vehicleId}'),
           position: LatLng(
@@ -297,6 +333,7 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
               title: '${hb.vehicleReg}',
               snippet: getFormattedDateLong(hb.created!))));
 
+      _zoomToHeartbeat(latestHeartbeat);
       setState(() {});
     }
   }
@@ -324,6 +361,8 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
       //       '\n🔵 routePoints: ${value.routePoints.length}'
       //       '\n🔵 routeCities: ${value.routeCities.length}');
       // }
+      final cl = await prefs.getColorAndLocale();
+      date = await getFmtDate(DateTime.now().toIso8601String(), cl.locale, context);
       _filter();
     } catch (e) {
       pp(e.toString());
@@ -379,13 +418,22 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
   Future<void> _zoomToBeginningOfRoute(lib.Route route) async {
     if (route.routeStartEnd != null) {
       final latLng = LatLng(
-          route.routeStartEnd!.startCityPosition!.coordinates.last,
-          route.routeStartEnd!.startCityPosition!.coordinates.first);
+          route.routeStartEnd!.startCityPosition!.coordinates!.last,
+          route.routeStartEnd!.startCityPosition!.coordinates!.first);
       var cameraPos = CameraPosition(target: latLng, zoom: 12.0);
       final GoogleMapController controller = await _mapController.future;
       controller.animateCamera(CameraUpdate.newCameraPosition(cameraPos));
       setState(() {});
     }
+  }
+
+  Future<void> _zoomToHeartbeat(VehicleHeartbeat hb) async {
+    final latLng =
+        LatLng(hb.position!.coordinates!.last, hb.position!.coordinates!.first);
+    var cameraPos = CameraPosition(target: latLng, zoom: 14.0);
+    final GoogleMapController controller = await _mapController.future;
+    controller.animateCamera(CameraUpdate.newCameraPosition(cameraPos));
+    setState(() {});
   }
 
   int index = 0;
@@ -403,8 +451,8 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
       _markers.add(Marker(
           markerId: MarkerId(routeLandmark.landmarkId!),
           icon: icons.elementAt(landmarkIndex),
-          position: LatLng(routeLandmark.position!.coordinates[1],
-              routeLandmark.position!.coordinates[0]),
+          position: LatLng(routeLandmark.position!.coordinates![1],
+              routeLandmark.position!.coordinates![0]),
           infoWindow: InfoWindow(
               title: routeLandmark.landmarkName,
               snippet: '🍎Part of ${routeLandmark.routeName}')));
@@ -421,7 +469,7 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
     points.sort((a, b) => a.index!.compareTo(b.index!));
     for (var rp in points) {
       mPoints.add(LatLng(
-          rp.position!.coordinates.last, rp.position!.coordinates.first));
+          rp.position!.coordinates!.last, rp.position!.coordinates!.first));
     }
     int width = (widthIndex + 1) * 6;
     if (width > 12) {
@@ -498,9 +546,32 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
     }
   }
 
-  int distanceInKM = 100;
+  void onColorChosen(ColorFromTheme colorFromTheme) async {
+    pp('$mm onColorChosen, index: ${colorFromTheme.themeIndex}');
+    colorAndLocale.themeIndex = colorFromTheme.themeIndex;
+    prefs.saveColorAndLocale(colorAndLocale);
+    themeBloc.changeColorAndLocale(colorAndLocale);
+    setState(() {
+      this.colorFromTheme = colorFromTheme;
+    });
+  }
 
+  void onLanguageChosen(LangBag langBag) async {
+    pp('$mm onLanguageChosen, index: ${langBag.language}');
+    colorAndLocale.locale = langBag.locale;
+    prefs.saveColorAndLocale(colorAndLocale);
+    themeBloc.changeColorAndLocale(colorAndLocale);
+    await _setTexts();
+    setState(() {
+      _refresh = !_refresh;
+    });
+  }
+
+  int distanceInKM = 100;
+  String date = 'just now';
   bool _showColorSheet = false;
+  bool _showLanguage = false;
+  bool _refresh = false;
 
   @override
   Widget build(BuildContext context) {
@@ -509,20 +580,25 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
           title: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              Text(
-                'Association Route Map ',
-                style: myTextStyleMediumLargeWithColor(
-                    context, Theme.of(context).primaryColor, 32),
-              ),
+              stringsHelper == null
+                  ? gapW32
+                  : Text(
+                      stringsHelper!.assRouteOperations,
+                      style: myTextStyleMediumLargeWithColor(
+                          context, Theme.of(context).primaryColor, 32),
+                    ),
               gapW32,
               ControlWidget(
-                  minutes: minutes,
-                  onMinutesPicked: (min) {
-                    setState(() {
-                      minutes = min;
-                    });
-                    _startTimer();
-                  }),
+                minutes: minutes,
+                onMinutesPicked: (min) {
+                  setState(() {
+                    minutes = min;
+                  });
+                  _startTimer();
+                },
+                numberInMinutes:
+                    stringsHelper == null ? '' : stringsHelper!.numberMinutes,
+              ),
             ],
           ),
           actions: [
@@ -534,6 +610,16 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
                 },
                 icon: Icon(
                   Icons.color_lens_outlined,
+                  color: Theme.of(context).primaryColor,
+                )),
+            IconButton(
+                onPressed: () {
+                  setState(() {
+                    _showLanguage = true;
+                  });
+                },
+                icon: Icon(
+                  Icons.language,
                   color: Theme.of(context).primaryColor,
                 )),
           ],
@@ -612,9 +698,13 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
               _getRouteBags();
             },
           ),
+          const Positioned(
+              child: LiveDisplay(
+            width: 600,
+          )),
           Positioned(
-              right: 12,
-              top: 120,
+              right: 0,
+              top: 0,
               child: Container(
                 color: Colors.black45,
                 child: Padding(
@@ -633,56 +723,81 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
               )),
           showSignIn
               ? Positioned(
-                  left: 400,
-                  right: 400,
-                  bottom: 200,
-                  top: 200,
                   child: Center(
-                    child: EmailAuthSignin(onGoodSignIn: (mUser) {
-                      pp('$mm ......... sign in COOL, will get route data ${E.leaf}');
-                      setState(() {
-                        showSignIn = false;
-                        user = mUser;
-                      });
-                      _getRouteBags();
-                      _control();
-                    }, onSignInError: () {
-                      pp('$mm sign in error ${E.redDot}');
-                      if (mounted) {
-                        showSnackBar(
-                            backgroundColor: Colors.red,
-                            textStyle: const TextStyle(color: Colors.white),
-                            message: 'Sign In failed: $e',
-                            context: context);
-                      }
-                    }),
-                  ))
+                  child: SizedBox(
+                    height: 400,
+                    child: EmailAuthSignin(
+                        refresh: _refresh,
+                        onGoodSignIn: (mUser) {
+                          pp('$mm ......... sign in COOL, will get route data ${E.leaf}');
+                          setState(() {
+                            showSignIn = false;
+                            user = mUser;
+                          });
+                          _getRouteBags();
+                          _control();
+                        },
+                        onSignInError: () {
+                          pp('$mm sign in error ${E.redDot}');
+                          if (mounted) {
+                            showSnackBar(
+                                backgroundColor: Colors.red,
+                                textStyle: const TextStyle(color: Colors.white),
+                                message: 'Sign In failed: $e',
+                                context: context);
+                          }
+                        }),
+                  ),
+                ))
               : gapW4,
           _showBag
               ? Positioned(
                   right: 8,
-                  top: 160,
-                  child: AssociationBagWidget(
-                    bag: bag!,
-                    width: 400,
-                  ))
+                  top: 32,
+                  child: stringsHelper == null
+                      ? gapW32
+                      : AssociationBagWidget(
+                          bag: bag!,
+                          width: 360,
+                          date: date,
+                          operationsSummary: stringsHelper!.operationsSummary,
+                          dispatches: stringsHelper!.dispatchesText,
+                          passengers: stringsHelper!.passengers,
+                          arrivals: stringsHelper!.arrivalsText,
+                          departures: stringsHelper!.departuresText,
+                          heartbeats: stringsHelper!.heartbeats,
+                          lastUpdated: stringsHelper!.timeLastUpdate))
               : gapW32,
           _showColorSheet
               ? Positioned(
-                  child: Center(
-                  child: SizedBox(
-                    width: 500,
-                    height: 500,
-                    child: LanguageAndColorChooser(
-                      onLanguageChosen: (c) {
-                        pp('$mm ... something chosen: $c');
+                  right: 12,
+                  top: 12,
+                  child: ColorGrid(
+                    colors: colors,
+                    onColorChosen: (clr) {
+                      onColorChosen(clr);
+                    },
+                    onClose: () {
+                      setState(() {
                         _showColorSheet = false;
-                        _control();
-                      },
-                    ),
-                  ),
-                ))
+                      });
+                    },
+                    changeColor: stringsHelper!.changeColor,
+                  ))
               : gapW8,
+          _showLanguage
+              ? Positioned(
+                  right: 12,
+                  top: 12,
+                  child: LanguageList(onClose: () {
+                    setState(() {
+                      _showLanguage = false;
+                    });
+                  }, onLanguageChosen: (lang) {
+                    pp('$mm language chosen: $lang');
+                    onLanguageChosen(lang);
+                  }))
+              : gapW32,
           busy
               ? Positioned(
                   left: 400,
@@ -693,29 +808,60 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
                     child: Card(
                       shape: getDefaultRoundedBorder(),
                       elevation: 16,
-                      child: const TimerWidget(
-                        title: 'Loading Taxi Route data',
-                        subTitle: 'This may take a minute or two',
-                      ),
+                      child: stringsHelper == null
+                          ? gapW32
+                          : TimerWidget(
+                              title: stringsHelper!.dataLoader,
+                              subTitle: stringsHelper!.thisMayTakeMinutes,
+                            ),
                     ),
                   ))
               : gapW4,
         ]));
   }
+
+  List<ColorFromTheme> colors = [];
+  List<LangBag> languageBags = [];
+  late ColorAndLocale colorAndLocale;
+  ColorFromTheme? colorFromTheme;
+
+  void _getColors() async {
+    //todo - switch dark & light
+    setState(() {
+      busy = true;
+    });
+    try {
+      colors = SchemeUtil.getDarkThemeColors();
+      colorAndLocale = await prefs.getColorAndLocale();
+      colorFromTheme = SchemeUtil.getColorFromTheme(colorAndLocale);
+    } catch (e) {
+      pp(e);
+    }
+
+    setState(() {
+      busy = false;
+    });
+  }
 }
 
 class ControlWidget extends StatelessWidget {
   const ControlWidget(
-      {super.key, required this.minutes, required this.onMinutesPicked});
+      {super.key,
+      required this.minutes,
+      required this.onMinutesPicked,
+      required this.numberInMinutes});
 
   final int minutes;
+  final String numberInMinutes;
   final Function(int) onMinutesPicked;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const Text('Number of Minutes'),
+        Text(numberInMinutes,
+            style: myTextStyleMediumLargeWithColor(
+                context, Theme.of(context).primaryColor, 12)),
         gapW32,
         Text(
           '$minutes',

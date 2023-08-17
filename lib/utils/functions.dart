@@ -9,9 +9,10 @@ import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:intl/date_symbol_data_file.dart';
 import 'package:intl/intl.dart' as intl;
 import 'package:pretty_json/pretty_json.dart';
+import 'package:intl/date_symbol_data_local.dart';
+
 
 import 'emojis.dart';
 
@@ -29,21 +30,25 @@ pp(dynamic msg) {
   }
 }
 
-Future<String> getFmtDate(String date, String locale) async {
-  await initializeDateFormatting("en", "somefile");
-  String mLocale = getValidLocale(locale);
-  Future.delayed(const Duration(milliseconds: 10));
+Future<String> getFmtDate(String date, String locale, BuildContext context) async {
 
-  DateTime now = DateTime.parse(date).toLocal();
-  final format = intl.DateFormat("EEEE dd MMMM yyyy  HH:mm:ss", mLocale);
-  final formatUS = intl.DateFormat("EEEE MMMM dd yyyy  HH:mm:ss", mLocale);
-  if (mLocale.contains('en_US')) {
-    final String result = formatUS.format(now);
-    return result;
-  } else {
-    final String result = format.format(now);
-    return result;
-  }
+  initializeDateFormatting(locale);
+  String languageCode = Localizations.localeOf(context).languageCode;
+  String dateTime = intl.DateFormat( "EEEE, dd MMMM yyyy HH:mm:ss", locale).format(DateTime.parse(date));
+  return dateTime;
+  // String mLocale = getValidLocale(locale);
+  // Future.delayed(const Duration(milliseconds: 10));
+  //
+  // DateTime now = DateTime.parse(date).toLocal();
+  // final format = intl.DateFormat("EEEE dd MMMM yyyy  HH:mm:ss", mLocale);
+  // final formatUS = intl.DateFormat("EEEE MMMM dd yyyy  HH:mm:ss", mLocale);
+  // if (mLocale.contains('en_US')) {
+  //   final String result = formatUS.format(now);
+  //   return result;
+  // } else {
+  //   final String result = format.format(now);
+  //   return result;
+  // }
 }
 
 String getFormattedDate(String date) {
@@ -219,7 +224,7 @@ String getFormattedDateHour(String date) {
   try {
     DateTime d = DateTime.parse(date);
     var format = intl.DateFormat.Hms();
-    return format.format(d.toUtc());
+    return format.format(d);
   } catch (e) {
     DateTime d = DateTime.now();
     var format = intl.DateFormat.Hm();
@@ -725,6 +730,8 @@ Future<BitmapDescriptor> getTaxiMapIcon(
   return BitmapDescriptor.fromBytes(data.buffer.asUint8List());
 }
 
+
+
 Future<BitmapDescriptor> getVehicleMarkerBitmap(int size,
     {String? text,
     required String color,
@@ -757,9 +764,12 @@ Future<BitmapDescriptor> getVehicleMarkerBitmap(int size,
   final Paint paint1 = Paint()..color = mainColor;
   final Paint paint2 = Paint()..color = borderColor;
 
-  canvas.drawCircle(Offset(size / 2, size / 2), size / 2.0, paint1);
-  canvas.drawCircle(Offset(size / 2, size / 2), size / 2.2, paint2);
-  canvas.drawCircle(Offset(size / 2, size / 2), size / 2.8, paint1);
+  // canvas.drawCircle(Offset(size / 2, size / 2), size / 2.0, paint1);
+  // canvas.drawCircle(Offset(size / 2, size / 2), size / 2.2, paint2);
+  // canvas.drawCircle(Offset(size / 2, size / 2), size / 2.8, paint1);
+
+  canvas.drawRect(Rect.fromLTWH(6, 6, 288, 36), paint1);
+
 
   if (text != null) {
     TextPainter painter = TextPainter(textDirection: TextDirection.ltr);

@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 class KasieEnvironment {
   // static const _currentStatus = 'prod';
   static const _currentStatus = 'dev';
@@ -7,8 +9,16 @@ class KasieEnvironment {
 
   static const _prodUrl = 'https://kasietransie-umrjnxdnuq-ew.a.run.app/';
 
-  static getUrl() {
-    if (_currentStatus == 'dev') {
+  // static String getUrl() {
+  //   if (_currentStatus == 'dev') {
+  //     return _devUrl;
+  //   } else {
+  //     return _prodUrl;
+  //   }
+  // }
+
+  static String getUrl() {
+    if (kDebugMode) {
       return _devUrl;
     } else {
       return _prodUrl;

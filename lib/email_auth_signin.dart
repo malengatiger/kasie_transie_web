@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/material.dart';
+import 'package:kasie_transie_web/l10n/strings_helper.dart';
 import 'package:kasie_transie_web/network.dart';
 import 'package:kasie_transie_web/utils/functions.dart';
 import 'package:kasie_transie_web/utils/signin_strings.dart';
@@ -7,14 +10,16 @@ import 'package:kasie_transie_web/utils/signin_strings.dart';
 import '../data/user.dart' as lib;
 import '../utils/emojis.dart';
 import '../utils/prefs.dart';
+import 'l10n/translation_handler.dart';
 
 class EmailAuthSignin extends StatefulWidget {
   const EmailAuthSignin(
-      {Key? key, required this.onGoodSignIn, required this.onSignInError})
+      {Key? key, required this.onGoodSignIn, required this.onSignInError, required this.refresh})
       : super(key: key);
 
   final Function(lib.User) onGoodSignIn;
   final Function onSignInError;
+  final bool refresh;
 
   @override
   EmailAuthSigninState createState() => EmailAuthSigninState();
@@ -28,21 +33,42 @@ class EmailAuthSigninState extends State<EmailAuthSignin>
       TextEditingController(text: "robertg@gmail.com");
   TextEditingController pswdController = TextEditingController(text: "pass123");
 
+  late StreamSubscription<bool> subscription;
   var formKey = GlobalKey<FormState>();
   bool busy = false;
   bool initializing = false;
   lib.User? user;
   SignInStrings? signInStrings;
 
+  StringsHelper? stringsHelper;
   @override
   void initState() {
     _controller = AnimationController(vsync: this);
     super.initState();
+    _listen();
+    _setTexts();
   }
 
+  void _listen() {
+    subscription = translator.translationStream.listen((event) {
+      pp('$mm ... translationStream ');
+      if (mounted) {
+        setState(() {
+
+        });();
+      }
+    });
+  }
+  Future _setTexts() async {
+    stringsHelper = await StringsHelper.getTranslatedTexts();
+    setState(() {
+
+    });
+  }
   @override
   void dispose() {
     _controller.dispose();
+    subscription.cancel();
     super.dispose();
   }
 
@@ -133,112 +159,87 @@ class EmailAuthSigninState extends State<EmailAuthSignin>
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Scaffold(
-        appBar: AppBar(
-          title: Padding(
+    return Center(
+      child: SizedBox(
+        width: 480,
+        child: Card(
+          shape: getDefaultRoundedBorder(),
+          elevation: 8,
+          child: Padding(
             padding: const EdgeInsets.all(16.0),
-            child: Text(
-              'Email Sign In',
-              style: myTextStyleLarge(context),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                stringsHelper == null? gapW32 : Expanded(
+                    child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Text(
+                        stringsHelper!.signInWithEmail,
+                        style: myTextStyleMediumLargeWithColor(
+                            context, Theme.of(context).primaryColor, 20),
+                      ),
+                      gapH32,
+                      SizedBox(
+                        width: 420,
+                        child: TextFormField(
+                          controller: emailController,
+                          decoration: InputDecoration(
+                            label:  Text(stringsHelper!.emailAddress),
+                            hintText: stringsHelper!.enterEmail,
+                            icon: const Icon(Icons.email),
+                            iconColor: Theme.of(context).primaryColor,
+                          ),
+                        ),
+                      ),
+                      gapH32,
+                      SizedBox(
+                        width: 420,
+                        child: TextFormField(
+                          controller: pswdController,
+                          obscureText: true,
+                          decoration: InputDecoration(
+                            label:  Text(stringsHelper!.password),
+                            hintText: stringsHelper!.enterPassword,
+                            icon: const Icon(Icons.lock),
+                            iconColor: Theme.of(context).primaryColor,
+                          ),
+                        ),
+                      ),
+                      gapH32,
+                      gapH16,
+                      busy
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 12,
+                                backgroundColor: Colors.amber,
+                              ),
+                            )
+                          : ElevatedButton(
+                              style: const ButtonStyle(
+                                elevation:
+                                    MaterialStatePropertyAll<double>(8.0),
+                              ),
+                              onPressed: () {
+                                _signIn();
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child:  Text(stringsHelper!.sendSignIn),
+                              )),
+                      gapH32,
+                    ],
+                  ),
+                ))
+              ],
             ),
           ),
-        ),
-        body: Stack(
-          children: [
-            Center(
-              child: SizedBox(
-                width: 480,
-                height: 640,
-                child: Card(
-                  shape: getDefaultRoundedBorder(),
-                  elevation: 8,
-                  child: Padding(
-                    padding: const EdgeInsets.all(24.0),
-                    child: Column(
-                      children: [
-                        const SizedBox(
-                          height: 48,
-                        ),
-                        Text(
-                          'Email Authentication',
-                          style: myTextStyleMediumLarge(context, 24),
-                        ),
-                        const SizedBox(
-                          height: 48,
-                        ),
-                        Expanded(
-                            child: Form(
-                          key: formKey,
-                          child: Column(
-                            children: [
-                              const SizedBox(
-                                height: 48,
-                              ),
-                              SizedBox(
-                                width: 420,
-                                child: TextFormField(
-                                  controller: emailController,
-                                  decoration: InputDecoration(
-                                    label: const Text('Email Address'),
-                                    hintText: 'Enter your Email address',
-                                    icon: const Icon(Icons.email),
-                                    iconColor: Theme.of(context).primaryColor,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(
-                                height: 36,
-                              ),
-                              SizedBox(
-                                width: 420,
-                                child: TextFormField(
-                                  controller: pswdController,
-                                  obscureText: true,
-                                  decoration: InputDecoration(
-                                    label: const Text('Password'),
-                                    hintText: 'Enter your password',
-                                    icon: const Icon(Icons.lock),
-                                    iconColor: Theme.of(context).primaryColor,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(
-                                height: 80,
-                              ),
-                              busy
-                                  ? const SizedBox(
-                                      width: 24,
-                                      height: 24,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 12,
-                                        backgroundColor: Colors.amber,
-                                      ),
-                                    )
-                                  : SizedBox(
-                                      width: 300,
-                                      height: 60,
-                                      child: ElevatedButton(
-                                          style: const ButtonStyle(
-                                            elevation: MaterialStatePropertyAll<
-                                                double>(8.0),
-                                          ),
-                                          onPressed: () {
-                                            _signIn();
-                                          },
-                                          child: const Text(
-                                              'Send Sign In Credentials')),
-                                    )
-                            ],
-                          ),
-                        ))
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
         ),
       ),
     );

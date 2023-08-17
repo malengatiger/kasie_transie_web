@@ -2,6 +2,7 @@ import 'package:animated_splash_screen/animated_splash_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:firebase_core/firebase_core.dart' as fb;
+import 'package:kasie_transie_web/local_storage/storage_manager.dart';
 import 'package:kasie_transie_web/utils/emojis.dart';
 import 'package:kasie_transie_web/utils/functions.dart';
 import 'package:kasie_transie_web/utils/prefs.dart';
@@ -28,6 +29,7 @@ Future<void> main() async {
       ' Firebase App has been initialized: ${firebaseApp.name}, checking for authed current user\n');
   fbAuthedUser = fb.FirebaseAuth.instance.currentUser;
 
+  // storageManager.initialize();
   user = await prefs.getUser();
   if (user != null) {
     // fcmBloc.subscribeForOwnerMarshalOfficialAmbassador('KasieWeb');
