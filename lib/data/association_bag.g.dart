@@ -21,6 +21,9 @@ AssociationBag _$AssociationBagFromJson(Map<String, dynamic> json) =>
       departures: (json['departures'] as List<dynamic>)
           .map((e) => VehicleDeparture.fromJson(e as Map<String, dynamic>))
           .toList(),
+      commuterRequests: (json['commuterRequests'] as List<dynamic>)
+          .map((e) => CommuterRequest.fromJson(e as Map<String, dynamic>))
+          .toList(),
       dispatchRecords: (json['dispatchRecords'] as List<dynamic>)
           .map((e) => DispatchRecord.fromJson(e as Map<String, dynamic>))
           .toList(),
@@ -33,4 +36,5 @@ Map<String, dynamic> _$AssociationBagToJson(AssociationBag instance) =>
       'arrivals': instance.arrivals,
       'departures': instance.departures,
       'dispatchRecords': instance.dispatchRecords,
+      'commuterRequests': instance.commuterRequests,
     };

@@ -1,4 +1,7 @@
 import 'dart:async';
+
+import 'package:badges/badges.dart' as bd;
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:kasie_transie_web/blocs/fcm_bloc.dart';
 import 'package:kasie_transie_web/data/ambassador_passenger_count.dart';
@@ -15,13 +18,13 @@ import '../data/location_response.dart';
 import '../l10n/translation_handler.dart';
 import '../utils/emojis.dart';
 import '../utils/functions.dart';
-import 'package:badges/badges.dart' as bd;
-import 'package:flutter/material.dart';
 
 class LiveDisplay extends StatefulWidget {
-  const LiveDisplay({super.key, required this.width});
+  const LiveDisplay({super.key, required this.width, required this.cutoffDate});
 
   final double? width;
+  final DateTime cutoffDate;
+
   @override
   State<LiveDisplay> createState() => _LiveDisplayState();
 }
@@ -37,6 +40,7 @@ class _LiveDisplayState extends State<LiveDisplay> {
   late StreamSubscription<LocationRequest> locationRequestStreamSubscription;
   late StreamSubscription<LocationResponse> locationResponseStreamSubscription;
   late StreamSubscription<CommuterRequest> commuterReqStreamSubscription;
+
   List<VehicleHeartbeat> heartbeats = [];
   List<VehicleArrival> arrivals = [];
   List<VehicleDeparture> departures = [];
@@ -57,12 +61,12 @@ class _LiveDisplayState extends State<LiveDisplay> {
   }
 
   StringsHelper? stringsHelper;
+
   Future _setText() async {
     stringsHelper = await StringsHelper.getTranslatedTexts();
-    setState(() {
-
-    });
+    setState(() {});
   }
+
   void _listen() {
     pp('$mm will listen to fcm messaging ... '
         '${E.heartBlue} ${E.heartBlue} ${E.heartBlue} ...');
@@ -75,51 +79,102 @@ class _LiveDisplayState extends State<LiveDisplay> {
     });
     commuterReqStreamSubscription =
         fcmBloc.commuterRequestStreamStream.listen((event) {
-      pp('$mm commuterRequestStreamStream delivered event ... ${E.heartBlue} ');
-      commuterRequests.add(event);
-      if (mounted) {
-        setState(() {});
+      pp('$mm commuterRequestStreamStream delivered event ... ${E.heartBlue}  ${event.dateRequested} - ${event.commuterRequestId}');
+      if (commuterRequest != null) {
+        if (commuterRequest!.commuterRequestId! == event.commuterRequestId) {
+          pp('$mm ... commuterRequest ignored - is duplicate');
+        } else {
+          commuterRequests.add(event);
+          commuterRequest = event;
+          _updateCommuters();
+        }
+      } else {
+        commuterRequests.add(event);
+        commuterRequest = event;
+        _updateCommuters();
       }
     });
     heartbeatStreamSubscription = fcmBloc.heartbeatStreamStream.listen((event) {
-      pp('$mm heartbeatStreamStream delivered event ... ${E.heartBlue} ');
-      heartbeats.add(event);
-      if (mounted) {
-        setState(() {});
+      pp('$mm heartbeatStreamStream delivered event ... ${E.heartBlue}  ${event.created} - ${event.vehicleHeartbeatId} -  ${event.vehicleReg}');
+      if (vehicleHeartbeat != null) {
+        if (vehicleHeartbeat!.vehicleHeartbeatId! == event.vehicleHeartbeatId) {
+          pp('$mm ... heartbeat ignored - is duplicate');
+        } else {
+          heartbeats.add(event);
+          vehicleHeartbeat = event;
+          _updateHeartbeats();
+        }
+      } else {
+        heartbeats.add(event);
+        vehicleHeartbeat = event;
+        _updateHeartbeats();
       }
     });
 
     arrivalStreamSubscription = fcmBloc.vehicleArrivalStream.listen((event) {
-      pp('$mm ... vehicleArrivalStream delivered. ');
-      arrivals.add(event);
-      if (mounted) {
-        setState(() {});
+      pp('$mm ... vehicleArrivalStream delivered.  ${event.created} - ${event.vehicleArrivalId}  - ${event.vehicleReg}');
+      if (vehicleArrival != null) {
+        if (vehicleArrival!.vehicleArrivalId! == event.vehicleArrivalId) {
+          pp('$mm ... arrival ignored - is duplicate');
+        } else {
+          arrivals.add(event);
+          vehicleArrival = event;
+          _updateArrivals();
+        }
+      } else {
+        arrivals.add(event);
+        vehicleArrival = event;
+        _updateArrivals();
       }
     });
     departureStreamSubscription =
         fcmBloc.vehicleDepartureStream.listen((event) {
-      pp('$mm ... vehicleDepartureStream delivered. ');
-      departures.add(event);
-      if (mounted) {
-        setState(() {});
+      pp('$mm ... vehicleDepartureStream delivered.  ${event.created} - ${event.vehicleDepartureId} - ${event.vehicleReg}');
+      if (vehicleDeparture != null) {
+        if (vehicleDeparture!.vehicleDepartureId! == event.vehicleDepartureId) {
+          pp('$mm ... departure ignored - is duplicate');
+        } else {
+          departures.add(event);
+          vehicleDeparture = event;
+          _updateDepartures();
+        }
+      } else {
+        departures.add(event);
+        vehicleDeparture = event;
+        _updateDepartures();
       }
     });
     dispatchStreamSubscription = fcmBloc.dispatchStream.listen((event) {
-      pp('$mm ... dispatchStream delivered. ');
-      dispatches.add(event);
-      if (mounted) {
-        setState(() {});
+      pp('$mm ... dispatchStream delivered. ${event.created} - ${event.dispatchRecordId}');
+      if (dispatchRecord != null) {
+        if (dispatchRecord!.dispatchRecordId! == event.dispatchRecordId) {
+          pp('$mm ... dispatch ignored - is duplicate');
+        } else {
+          dispatches.add(event);
+          dispatchRecord = event;
+          _updateDispatches();
+        }
+      } else {
+        dispatches.add(event);
+        dispatchRecord = event;
+        _updateDispatches();
       }
     });
     passengerStreamSubscription = fcmBloc.passengerCountStream.listen((event) {
-      pp('$mm ... passengerCountStream delivered. ');
-      passengerCounts.add(event);
-      totalPassengers = 0;
-      for (var value in passengerCounts) {
-        totalPassengers += value.passengersIn!;
-      }
-      if (mounted) {
-        setState(() {});
+      pp('$mm ... passengerCountStream delivered.  ${event.created} - ${event.passengerCountId}');
+      myPrettyJsonPrint(event.toJson());
+      if (passengerCount != null) {
+        if (passengerCount!.passengerCountId! == event.passengerCountId) {
+          pp('$mm ... passenger count ignored - is duplicate');
+        } else {
+          passengerCounts.add(event);
+          passengerCount = event;
+          _updateCounts();
+        }
+      } else {
+        passengerCounts.add(event);
+        passengerCount = event;
+        _updateCounts();
       }
     });
     locationResponseStreamSubscription =
@@ -137,6 +192,107 @@ class _LiveDisplayState extends State<LiveDisplay> {
         setState(() {});
       }
     });
+  }
+
+  DispatchRecord? dispatchRecord;
+  VehicleArrival? vehicleArrival;
+  VehicleDeparture? vehicleDeparture;
+  VehicleHeartbeat? vehicleHeartbeat;
+  CommuterRequest? commuterRequest;
+  AmbassadorPassengerCount? passengerCount;
+
+  //
+  void _updateHeartbeats() {
+    final mHeartbeats = <VehicleHeartbeat>[];
+    for (var value in heartbeats) {
+      var date = DateTime.parse(value.created!);
+      if (date.isAfter(widget.cutoffDate)) {
+        mHeartbeats.add(value);
+      }
+    }
+    heartbeats = mHeartbeats;
+    if (mounted) {
+      setState(() {
+
+      });
+    }
+  }
+  void _updateCommuters() {
+    final mCommuterRequests = <CommuterRequest>[];
+    pp('$mm ... commuterRequests: ${commuterRequests.length}');
+    for (var value in commuterRequests) {
+      var date = DateTime.parse(value.dateRequested!);
+      if (date.isAfter(widget.cutoffDate)) {
+        mCommuterRequests.add(value);
+      }
+    }
+    commuterRequests = mCommuterRequests;
+    pp('$mm ... commuterRequests after filtering: ${commuterRequests.length}');
+    if (mounted) {
+      setState(() {});
+    }
+  }
+  void _updateDispatches() {
+    final mDispatches = <DispatchRecord>[];
+    pp('$mm ... dispatches: ${dispatches.length}');
+
+    for (var value in dispatches) {
+      var date = DateTime.parse(value.created!);
+      if (date.isAfter(widget.cutoffDate)) {
+        mDispatches.add(value);
+      }
+    }
+    dispatches = mDispatches;
+    pp('$mm ... dispatches after filter: ${dispatches.length}');
+    if (mounted) {
+      setState(() {});
+    }
+  }
+  void _updateDepartures() {
+    final mDepartures = <VehicleDeparture>[];
+    for (var value in departures) {
+      var date = DateTime.parse(value.created!);
+      if (date.isAfter(widget.cutoffDate)) {
+        mDepartures.add(value);
+      }
+    }
+    departures = mDepartures;
+    if (mounted) {
+      setState(() {});
+    }
+  }
+  void _updateArrivals() {
+    final mArrivals = <VehicleArrival>[];
+    for (var value in arrivals) {
+      var date = DateTime.parse(value.created!);
+      if (date.isAfter(widget.cutoffDate)) {
+        mArrivals.add(value);
+      }
+    }
+    arrivals = mArrivals;
+    if (mounted) {
+      setState(() {});
+    }
+  }
+  void _updateCounts() {
+    final mCounts = <AmbassadorPassengerCount>[];
+    for (var value in passengerCounts) {
+      var date = DateTime.parse(value.created!);
+      if (date.isAfter(widget.cutoffDate)) {
+        mCounts.add(value);
+      }
+    }
+    pp('$mm ............ _updateCounts: totalPassengers: $totalPassengers');
+    passengerCounts = mCounts;
+    totalPassengers = 0;
+    for (var value in mCounts) {
+      totalPassengers += value.passengersIn!;
+    }
+    pp('$mm ............ _updateCounts: totalPassengers after recount: $totalPassengers from ${mCounts.length}');
+
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   @override
@@ -159,73 +315,89 @@ class _LiveDisplayState extends State<LiveDisplay> {
     final width = MediaQuery.of(context).size.width;
     return SizedBox(
       height: 140,
-      width: (width/2),
+      width: (width / 2),
       child: Center(
-        child: stringsHelper == null? gapW32: Card(
-          shape: getDefaultRoundedBorder(),
-          elevation: 4,
-          color: Colors.black54,
-          child: Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Row(mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                SizedBox(height: 64,
-                  child: Column(
+        child: stringsHelper == null
+            ? gapW32
+            : Card(
+                shape: getDefaultRoundedBorder(),
+                elevation: 4,
+                color: Colors.black54,
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(date, style: myTextStyleLarge(context),),
-                      Text(stringsHelper!.timeLastUpdate, style: myTextStyleTiny(context),),
+                      SizedBox(
+                        height: 64,
+                        child: Column(
+                          children: [
+                            Text(
+                              date,
+                              style: myTextStyleLarge(context),
+                            ),
+                            Text(
+                              stringsHelper!.timeLastUpdate,
+                              style: myTextStyleTiny(context),
+                            ),
+                          ],
+                        ),
+                      ),
+                      gapW16,
+                      ActivityWidget(
+                          number: dispatches.length,
+                          caption: stringsHelper!.dispatchesText,
+                          numberStyle:
+                              myTextStyleSmallWithColor(context, Colors.white),
+                          captionStyle: myTextStyleMediumLargeWithColor(
+                              context, Theme.of(context).primaryColor, 12),
+                          color: Colors.deepOrange),
+                      ActivityWidget(
+                          number: arrivals.length,
+                          caption: stringsHelper!.arrivalsText,
+                          numberStyle:
+                              myTextStyleSmallWithColor(context, Colors.white),
+                          captionStyle: myTextStyleMediumLargeWithColor(
+                              context, Theme.of(context).primaryColor, 12),
+                          color: Colors.teal.shade700),
+                      ActivityWidget(
+                          number: totalPassengers,
+                          caption: stringsHelper!.passengers,
+                          numberStyle:
+                              myTextStyleSmallWithColor(context, Colors.white),
+                          captionStyle: myTextStyleMediumLargeWithColor(
+                              context, Theme.of(context).primaryColor, 12),
+                          color: Colors.blue),
+                      ActivityWidget(
+                          number: departures.length,
+                          caption: stringsHelper!.departuresText,
+                          numberStyle:
+                              myTextStyleSmallWithColor(context, Colors.white),
+                          captionStyle: myTextStyleMediumLargeWithColor(
+                              context, Theme.of(context).primaryColor, 12),
+                          color: Colors.brown),
+                      ActivityWidget(
+                        number: heartbeats.length,
+                        caption: stringsHelper!.heartbeats,
+                        numberStyle:
+                            myTextStyleSmallWithColor(context, Colors.white),
+                        color: Colors.indigo.shade700,
+                        captionStyle: myTextStyleMediumLargeWithColor(
+                            context, Theme.of(context).primaryColor, 12),
+                      ),
+                      ActivityWidget(
+                        number: commuterRequests.length,
+                        caption: stringsHelper!.commutersText,
+                        numberStyle:
+                            myTextStyleSmallWithColor(context, Colors.white),
+                        color: Colors.red.shade700,
+                        captionStyle: myTextStyleMediumLargeWithColor(
+                            context, Theme.of(context).primaryColor, 12),
+                      ),
                     ],
                   ),
                 ),
-                gapW16,
-                ActivityWidget(
-                    number: dispatches.length,
-                    caption: stringsHelper!.dispatchesText,
-                    numberStyle: myTextStyleSmallWithColor(context, Colors.white),
-                    captionStyle: myTextStyleMediumLargeWithColor(
-                        context, Theme.of(context).primaryColor, 12),
-                    color: Colors.deepOrange),
-                ActivityWidget(
-                    number: arrivals.length,
-                    caption: stringsHelper!.arrivalsText,
-                    numberStyle: myTextStyleSmallWithColor(context, Colors.white),
-                    captionStyle: myTextStyleMediumLargeWithColor(
-                        context, Theme.of(context).primaryColor, 12),
-                    color: Colors.teal.shade700),
-                ActivityWidget(
-                    number: totalPassengers,
-                    caption: stringsHelper!.passengers,
-                    numberStyle: myTextStyleSmallWithColor(context, Colors.white),
-                    captionStyle: myTextStyleMediumLargeWithColor(
-                        context, Theme.of(context).primaryColor, 12),
-                    color: Colors.blue),
-                ActivityWidget(
-                    number: departures.length,
-                    caption: stringsHelper!.departuresText,
-                    numberStyle: myTextStyleSmallWithColor(context, Colors.white),
-                    captionStyle: myTextStyleMediumLargeWithColor(
-                        context, Theme.of(context).primaryColor, 12),
-                    color: Colors.brown),
-                ActivityWidget(
-                  number: heartbeats.length,
-                  caption: stringsHelper!.heartbeats,
-                  numberStyle: myTextStyleSmallWithColor(context, Colors.white),
-                  color: Colors.indigo.shade700,
-                  captionStyle: myTextStyleMediumLargeWithColor(
-                      context, Theme.of(context).primaryColor, 12),
-                ),
-                ActivityWidget(
-                  number: commuterRequests.length,
-                  caption: stringsHelper!.commutersText,
-                  numberStyle: myTextStyleSmallWithColor(context, Colors.white),
-                  color: Colors.red.shade700,
-                  captionStyle: myTextStyleMediumLargeWithColor(
-                      context, Theme.of(context).primaryColor, 12),
-                ),
-              ],
-            ),
-          ),
-        ),
+              ),
       ),
     );
   }
@@ -241,6 +413,7 @@ class ActivityWidget extends StatelessWidget {
       this.numberStyle,
       required this.color,
       this.elevation});
+
   final int number;
   final String caption;
   final double? padding;
@@ -253,7 +426,7 @@ class ActivityWidget extends StatelessWidget {
     final fmt = NumberFormat.decimalPattern();
     return Card(
       shape: getRoundedBorder(radius: 12),
-      elevation: elevation == null? 12: elevation!,
+      elevation: elevation == null ? 12 : elevation!,
       child: Center(
         child: SizedBox(
           width: 88,

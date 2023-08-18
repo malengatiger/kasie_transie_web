@@ -225,6 +225,7 @@ class NetworkHandler {
     pp('$xyz .... AssociationBag contains: '
         '\n ${E.appleGreen} arrivals: ${bag.arrivals.length}'
         '\n ${E.appleGreen} departures: ${bag.departures.length}'
+        '\n ${E.appleGreen} commuterRequests: ${bag.commuterRequests.length}'
         '\n ${E.appleGreen} passengerCounts: ${bag.passengerCounts.length}'
         '\n ${E.appleGreen} heartbeats: ${bag.heartbeats.length}'
         '\n ${E.appleGreen} dispatchRecords: ${bag.dispatchRecords.length}');

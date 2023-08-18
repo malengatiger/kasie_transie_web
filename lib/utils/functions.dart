@@ -715,7 +715,7 @@ Future<BitmapDescriptor> getTaxiMapIcon(
   painter.layout();
   painter.paint(
     canvas,
-    const Offset(0.0, 56.0),
+    const Offset(12.0, 64.0),
   );
 
   // final double textX = (iconSize - textPainter.width) / 2.0;

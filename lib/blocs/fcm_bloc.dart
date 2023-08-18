@@ -148,6 +148,9 @@ class FcmBloc {
     } else if (message[Constants.commuterRequest] != null) {
       //pp("$mm onMessage: $red commuterRequest message has arrived!  ... $red ");
       type = Constants.commuterRequest;
+    } else if (message[Constants.dispatchRecord] != null) {
+      //pp("$mm onMessage: $red commuterRequest message has arrived!  ... $red ");
+      type = Constants.dispatchRecord;
     } else if (message[Constants.routeUpdateRequest] != null) {
       //pp("$mm onMessage: $red routeUpdateRequest message has arrived!  ... $red ");
       type = Constants.routeUpdateRequest;

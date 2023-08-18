@@ -1,10 +1,9 @@
-import 'package:kasie_transie_web/data/position.dart';
 import 'package:json_annotation/json_annotation.dart';
+import 'package:kasie_transie_web/data/position.dart';
 
 part 'ambassador_passenger_count.g.dart';
 
 @JsonSerializable()
-
 class AmbassadorPassengerCount {
   String? vehicleId, vehicleReg;
   String? userId;
@@ -18,10 +17,11 @@ class AmbassadorPassengerCount {
   int? passengersIn;
   int? passengersOut;
   int? currentPassengers;
+  String? passengerCountId;
   Position? position;
 
-  AmbassadorPassengerCount({
-      required this.vehicleId,
+  AmbassadorPassengerCount(
+      {required this.vehicleId,
       required this.vehicleReg,
       required this.userId,
       required this.userName,
@@ -33,10 +33,12 @@ class AmbassadorPassengerCount {
       required this.ownerName,
       required this.passengersIn,
       required this.passengersOut,
+      required this.passengerCountId,
       required this.currentPassengers,
       required this.position});
 
-  factory AmbassadorPassengerCount.fromJson(Map<String, dynamic> json) => _$AmbassadorPassengerCountFromJson(json);
-  Map<String, dynamic> toJson() => _$AmbassadorPassengerCountToJson(this);
+  factory AmbassadorPassengerCount.fromJson(Map<String, dynamic> json) =>
+      _$AmbassadorPassengerCountFromJson(json);
 
+  Map<String, dynamic> toJson() => _$AmbassadorPassengerCountToJson(this);
 }

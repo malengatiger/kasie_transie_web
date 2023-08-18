@@ -35,6 +35,8 @@ class MyKeys {
     hashMap['checkEmail'] = 'checkEmail';
     hashMap['cities'] = 'cities';
     hashMap['citiesTownsPlaces'] = 'citiesTownsPlaces';
+    hashMap['commuterRequest'] = 'commuterRequest';
+    hashMap['commuterRequests'] = 'commuterRequests';
     hashMap['commuters'] = 'commuters';
     hashMap['confirmDispatch'] = 'confirmDispatch';
     hashMap['countPassengers'] = 'countPassengers';

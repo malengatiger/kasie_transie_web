@@ -26,10 +26,16 @@ class StringsHelper {
   String operationsSummary = 'operationsSummary';
   String dataLoader = 'dataLoader';
   String thisMayTakeMinutes = 'thisMayTakeMinutes';
+  String commuterRequest = 'commuterRequest';
+  String commuterRequests = 'commuterRequests';
+  String signInFailed = 'signInFailed';
+  String signInComplete = 'signInComplete';
+  String serverUnreachable = 'serverUnreachable';
 
   StringsHelper(
       {required this.assRouteOperations,
       required this.changeColor,
+      required this.signInFailed,
       required this.passengers,
       required this.changeLanguage,
       required this.commutersText,
@@ -47,8 +53,12 @@ class StringsHelper {
       required this.numberMinutes,
       required this.loadingRoutes,
       required this.heartbeats,
-        required this.dataLoader,
-        required this.operationsSummary,
+      required this.dataLoader,
+      required this.serverUnreachable,
+      required this.commuterRequests,
+      required this.commuterRequest,
+      required this.signInComplete,
+      required this.operationsSummary,
       required this.thisMayTakeMinutes});
 
   static Future<StringsHelper> getTranslatedTexts() async {
@@ -79,13 +89,25 @@ class StringsHelper {
     var numberMinutes = await translator.translate('numberMinutes', locale);
     var passengers = await translator.translate('passengers', locale);
     var heartbeats = await translator.translate('heartbeats', locale);
-    var operationsSummary = await translator.translate('operationsSummary', locale);
+    var operationsSummary =
+        await translator.translate('operationsSummary', locale);
     var dataLoader = await translator.translate('dataLoader', locale);
+    var commuterRequests =
+        await translator.translate('commuterRequests', locale);
 
-
+    var commuterRequest = await translator.translate('commuterRequest', locale);
+    var signInFailed = await translator.translate('signInFailed', locale);
+    var signInComplete = await translator.translate('signInComplete', locale);
+    var serverUnreachable =
+        await translator.translate('serverUnreachable', locale);
 
     pp('🔵 ....... translations completed');
     final h = StringsHelper(
+        serverUnreachable: serverUnreachable,
+        signInComplete: signInComplete,
+        signInFailed: signInFailed,
+        commuterRequest: commuterRequest,
+        commuterRequests: commuterRequests,
         operationsSummary: operationsSummary,
         dataLoader: dataLoader,
         assRouteOperations: assRouteOperations,

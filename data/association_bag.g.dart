@@ -23,7 +23,7 @@ AssociationBag _$AssociationBagFromJson(Map<String, dynamic> json) =>
           .toList(),
       dispatchRecords: (json['dispatchRecords'] as List<dynamic>)
           .map((e) => DispatchRecord.fromJson(e as Map<String, dynamic>))
-          .toList(),
+          .toList(), commuterRequests: [],
     );
 
 Map<String, dynamic> _$AssociationBagToJson(AssociationBag instance) =>

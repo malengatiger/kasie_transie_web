@@ -21,6 +21,7 @@ AmbassadorPassengerCount _$AmbassadorPassengerCountFromJson(
       ownerName: json['ownerName'] as String?,
       passengersIn: json['passengersIn'] as int?,
       passengersOut: json['passengersOut'] as int?,
+      passengerCountId: json['passengerCountId'] as String?,
       currentPassengers: json['currentPassengers'] as int?,
       position: json['position'] == null
           ? null
@@ -43,5 +44,6 @@ Map<String, dynamic> _$AmbassadorPassengerCountToJson(
       'passengersIn': instance.passengersIn,
       'passengersOut': instance.passengersOut,
       'currentPassengers': instance.currentPassengers,
+      'passengerCountId': instance.passengerCountId,
       'position': instance.position,
     };

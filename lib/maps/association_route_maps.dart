@@ -17,8 +17,10 @@ import 'package:kasie_transie_web/data/vehicle_departure.dart';
 import 'package:kasie_transie_web/data/vehicle_heartbeat.dart';
 import 'package:kasie_transie_web/email_auth_signin.dart';
 import 'package:kasie_transie_web/l10n/strings_helper.dart';
-import 'package:kasie_transie_web/l10n/translation_handler.dart';
+import 'package:kasie_transie_web/maps/cluster_maps/cluster_covers.dart';
+import 'package:kasie_transie_web/maps/cluster_maps/commuter_cluster_map.dart';
 import 'package:kasie_transie_web/network.dart';
+import 'package:kasie_transie_web/utils/navigator_utils.dart';
 import 'package:kasie_transie_web/utils/prefs.dart';
 import 'package:kasie_transie_web/widgets/association_bag_widget.dart';
 import 'package:kasie_transie_web/widgets/color_grid.dart';
@@ -81,7 +83,7 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
     target: LatLng(-25.8656, 27.7564),
     zoom: defaultZoom,
   );
-  static const mm = '😡😡😡😡😡😡😡 AssociationRouteMaps: 💪 ';
+  static const mm = '😡😡😡😡😡😡😡 AssociationRouteOperations: 💪 ';
   final _key = GlobalKey<ScaffoldState>();
   bool busy = false;
   bool isHybrid = true;
@@ -133,6 +135,7 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
   }
 
   StringsHelper? stringsHelper;
+
   Future _setTexts() async {
     stringsHelper = await StringsHelper.getTranslatedTexts();
     setState(() {});
@@ -149,6 +152,7 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
     commuterStreamSubscription.cancel();
     locationRequestStreamSubscription.cancel();
     locationResponseStreamSubscription.cancel();
+
     super.dispose();
   }
 
@@ -201,9 +205,9 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
       //listen for fcm messages
       window.onMessage.listen((event) {
         final dynamic message = event.data;
-        pp('$mm ... message received, will be shipped to FCMBloc');
+        pp('$mm .......................................${E.redDot}'
+            ' message received, will be shipped to FCMBloc');
         final m = message['mData']['data'];
-        // myPrettyJsonPrint(m);
         fcmBloc.processFCMessage(convertDynamicMap(m));
       });
     } else {
@@ -294,6 +298,7 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
   }
 
   List<VehicleHeartbeat> heartbeatsToDisplay = [];
+
   void _addHeartbeatToHash(VehicleHeartbeat heartbeat) {
     var hash = HashMap<String, VehicleHeartbeat>();
     for (var value in heartbeats) {
@@ -311,18 +316,11 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
       pp('$mm ... putting ${hb.vehicleReg} on map ... ${hb.position!.coordinates}');
       final icon = await getTaxiMapIcon(
           iconSize: 108,
-          text: '${hb.vehicleReg}',
+          text: ' ${hb.vehicleReg}',
           style: const TextStyle(
-              color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900),
+              color: Colors.white, fontSize: 14, fontWeight: FontWeight.w900),
           path: 'assets/car2.png');
-      final icon2 = await getVehicleMarkerBitmap(
-        148,
-        color: 'black',
-        borderColor: Colors.white,
-        fontSize: 12,
-        fontWeight: FontWeight.w900,
-        text: '${hb.vehicleReg}',
-      );
+
       _heartbeatMarkers.add(Marker(
           markerId: MarkerId('${hb.vehicleId}'),
           position: LatLng(
@@ -355,24 +353,32 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
       bags = await networkHandler.getRouteBags(
           associationId: user!.associationId!);
       pp('$mm .... route bags: ${bags.length}, if > 0, we are in business!!');
-      // for (var value in bags) {
-      //   pp('$mm route: ${value.route!.name} 🔵🔵'
-      //       '\n🔵 routeLandmarks: ${value.routeLandmarks.length}'
-      //       '\n🔵 routePoints: ${value.routePoints.length}'
-      //       '\n🔵 routeCities: ${value.routeCities.length}');
-      // }
+      for (var value in bags) {
+        pp('$mm route: ${value.route!.name} 🔵🔵'
+            '\n🔵 routeLandmarks: ${value.routeLandmarks.length}'
+            '\n🔵 routePoints: ${value.routePoints.length}'
+            '\n🔵 routeCities: ${value.routeCities.length}');
+      }
       final cl = await prefs.getColorAndLocale();
-      date = await getFmtDate(DateTime.now().toIso8601String(), cl.locale, context);
+      date = await getFmtDate(
+          DateTime.now().toIso8601String(), cl.locale, context);
       _filter();
+
     } catch (e) {
       pp(e.toString());
+      showToast(
+          backgroundColor: Colors.red,
+          textStyle: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          padding: 24,
+          duration: Duration(seconds: 5),
+          message: stringsHelper!.serverUnreachable, context: context);
     }
     setState(() {
       busy = false;
     });
   }
 
-  int intervalSeconds = 600;
+  int intervalSeconds = 60;
   int minutes = 30;
   bool _showBag = false;
 
@@ -430,7 +436,7 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
   Future<void> _zoomToHeartbeat(VehicleHeartbeat hb) async {
     final latLng =
         LatLng(hb.position!.coordinates!.last, hb.position!.coordinates!.first);
-    var cameraPos = CameraPosition(target: latLng, zoom: 14.0);
+    var cameraPos = CameraPosition(target: latLng, zoom: 16.0);
     final GoogleMapController controller = await _mapController.future;
     controller.animateCamera(CameraUpdate.newCameraPosition(cameraPos));
     setState(() {});
@@ -572,6 +578,26 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
   bool _showColorSheet = false;
   bool _showLanguage = false;
   bool _refresh = false;
+  var commuterRequestCovers = <CommuterRequestCover>[];
+
+  void _navigateToCommuterMap() {
+    if (bag != null) {
+      for (var value in bag!.commuterRequests) {
+        commuterRequestCovers.add(CommuterRequestCover(
+            latLng: LatLng(value.currentPosition!.coordinates.last,
+                value.currentPosition!.coordinates.first),
+            request: value));
+      }
+
+      pp('$mm ... navigating with ${commuterRequestCovers.length} commuter requests');
+      navigateWithScale(
+          CommuterClusterMap(
+              commuterRequestCovers: commuterRequestCovers,
+              date: date,
+              routes: routes),
+          context);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -602,6 +628,14 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
             ],
           ),
           actions: [
+            IconButton(
+                onPressed: () {
+                  _navigateToCommuterMap();
+                },
+                icon: Icon(
+                  Icons.people,
+                  color: Theme.of(context).primaryColor,
+                )),
             IconButton(
                 onPressed: () {
                   setState(() {
@@ -698,9 +732,11 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
               _getRouteBags();
             },
           ),
-          const Positioned(
+          Positioned(
               child: LiveDisplay(
             width: 600,
+            cutoffDate:
+                DateTime.now().toUtc().subtract(Duration(minutes: minutes)),
           )),
           Positioned(
               right: 0,
