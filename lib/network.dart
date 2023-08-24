@@ -7,13 +7,16 @@ import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:kasie_transie_web/data/generation_request.dart';
 import 'package:kasie_transie_web/data/user.dart';
+import 'package:kasie_transie_web/data/vehicle.dart';
 import 'package:kasie_transie_web/data/vehicle_heartbeat.dart';
 import 'package:kasie_transie_web/utils/emojis.dart';
 import 'package:kasie_transie_web/utils/functions.dart';
 
 import 'data/association_bag.dart';
 import 'data/route_bag.dart';
+import 'data/route_bag_list.dart';
 import 'environment.dart';
 import 'kasie_exception.dart';
 
@@ -245,6 +248,50 @@ class NetworkHandler {
   Future getAssociationCommuterRequests(
       String associationId, String startDate) async {}
 
+  Future generateRouteCommuterRequests(String routeId) async {
+    final token = await getAuthToken();
+    if (token == null) {
+      pp('$xyz token is null, quit! ${E.redDot}${E.redDot}${E.redDot}');
+      return [];
+    }
+    final cmd = '${KasieEnvironment.getUrl()}generateRouteCommuterRequests?routeId=$routeId';
+    final res = await httpGet(cmd, token);
+    pp('$xyz CommuterRequests: $res ${E.leaf}${E.leaf}');
+    return res;
+  }
+  Future generateRouteDispatchRecords(GenerationRequest request) async {
+    final token = await getAuthToken();
+    if (token == null) {
+      pp('$xyz token is null, quit! ${E.redDot}${E.redDot}${E.redDot}');
+      return [];
+    }
+
+    final cmd = '${KasieEnvironment.getUrl()}generateRouteDispatchRecords';
+    final res = await httpPost(cmd, request.toJson(),token);
+
+    pp('\n\n$xyz generateRouteDispatchRecords: Demo Vehicles: ${request
+        .vehicleIds.length}  $res ${E.leaf}${E.leaf}');
+
+    return res;
+
+  }
+  Future<List<Vehicle>> getAssociationVehicles(String associationId) async {
+    List<Vehicle> cars = [];
+    final token = await getAuthToken();
+    if (token == null) {
+      pp('$xyz token is null, quit! ${E.redDot}${E.redDot}${E.redDot}');
+      return [];
+    }
+    final mUrl = '${KasieEnvironment.getUrl()}'
+        'getAssociationVehicles?associationId=$associationId&page=0';
+    List list = await httpGet(mUrl, token);
+    for (var value in list) {
+      cars.add(Vehicle.fromJson(value));
+    }
+    pp('$xyz getAssociationVehicles: 🔆🔆🔆 ${cars.length} cars found ...');
+
+    return cars;
+  }
   //
   Future<List<RouteBag>> getRouteBags({required String associationId}) async {
     pp('$xyz _getRouteBag: 🔆🔆🔆 get zipped data ...');
@@ -272,16 +319,13 @@ class NetworkHandler {
             'bytes 🔵 isCompressed: ${file.isCompressed} 🔵 zipped file name: ${file.name}');
         final content = file.content;
         final x = utf8.decode(content);
-        List list = jsonDecode(x);
-        for (var value in list) {
-          final RouteBag bag = RouteBag.fromJson(value);
-          bags.add(bag);
-        }
+        final mJson = jsonDecode(x);
+        final bagList = RouteBagList.fromJson(mJson);
         var end = DateTime.now();
         var ms = end.difference(start).inSeconds;
         pp('$xyz _getRouteBag 🍎🍎🍎🍎 work is done!, elapsed seconds: 🍎$ms 🍎bags done: ${bags.length}\n\n');
 
-        return bags;
+        return bagList.routeBags;
       }
     }
     throw Exception('Something went wrong');

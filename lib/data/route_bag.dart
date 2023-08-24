@@ -20,3 +20,4 @@ class RouteBag {
   Map<String, dynamic> toJson() => _$RouteBagToJson(this);
 
 }
+

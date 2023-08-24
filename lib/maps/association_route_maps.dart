@@ -38,6 +38,7 @@ import '../data/user.dart' as lib;
 import '../utils/color_and_locale.dart';
 import '../utils/emojis.dart';
 import '../utils/functions.dart';
+import '../widgets/demo_driver.dart';
 import '../widgets/language_list.dart';
 import '../widgets/timer_widget.dart';
 
@@ -86,7 +87,7 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
   static const mm = '😡😡😡😡😡😡😡 AssociationRouteOperations: 💪 ';
   final _key = GlobalKey<ScaffoldState>();
   bool busy = false;
-  bool isHybrid = true;
+  bool isHybrid = false;
   final Set<Marker> _markers = HashSet();
   final Set<Marker> _heartbeatMarkers = HashSet();
 
@@ -578,6 +579,7 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
   bool _showColorSheet = false;
   bool _showLanguage = false;
   bool _refresh = false;
+  bool _showDemoDriver = false;
   var commuterRequestCovers = <CommuterRequestCover>[];
 
   void _navigateToCommuterMap() {
@@ -597,6 +599,10 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
               routes: routes),
           context);
     }
+  }
+  
+  void _navigateToDemoDriver() async {
+    navigateWithScale(DemoDriver(routes: routesPicked, associationId: user!.associationId!,), context);
   }
 
   @override
@@ -757,6 +763,24 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
                       )),
                 ),
               )),
+          Positioned(
+              right: 0,
+              top: 60,
+              child: Container(
+                color: Colors.black45,
+                child: Padding(
+                  padding: const EdgeInsets.all(0.0),
+                  child: IconButton(
+                      onPressed: () {
+                        _navigateToDemoDriver();
+                      },
+                      icon: Icon(
+                        Icons.add_alert_sharp,
+                        color: isHybrid ? Colors.white : Colors.amber,
+                      )),
+                ),
+              )),
+
           showSignIn
               ? Positioned(
                   child: Center(
