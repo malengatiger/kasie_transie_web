@@ -45,5 +45,5 @@ Map<String, dynamic> _$AmbassadorPassengerCountToJson(
       'passengersOut': instance.passengersOut,
       'currentPassengers': instance.currentPassengers,
       'passengerCountId': instance.passengerCountId,
-      'position': instance.position,
+      'position': instance.position?.toJson(),
     };

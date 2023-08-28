@@ -3,7 +3,7 @@ import 'package:kasie_transie_web/data/position.dart';
 
 part 'ambassador_passenger_count.g.dart';
 
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class AmbassadorPassengerCount {
   String? vehicleId, vehicleReg;
   String? userId;

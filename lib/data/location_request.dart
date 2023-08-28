@@ -2,7 +2,7 @@ import 'package:json_annotation/json_annotation.dart';
 
 part 'location_request.g.dart';
 
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 
 class LocationRequest {
   String? vehicleId, vehicleReg;

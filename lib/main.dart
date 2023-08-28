@@ -9,9 +9,10 @@ import 'package:kasie_transie_web/utils/prefs.dart';
 import 'package:kasie_transie_web/widgets/splash_page.dart';
 import 'package:page_transition/page_transition.dart';
 import 'blocs/theme_bloc.dart';
+import 'dashboard.dart';
 import 'firebase_options.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart' as dot;
-import 'maps/association_route_maps.dart';
+import 'maps/association_route_operations.dart';
 import 'package:kasie_transie_web/data/user.dart' as lib;
 
 late fb.FirebaseApp firebaseApp;
@@ -54,8 +55,8 @@ class KasieWeb extends StatelessWidget {
           stream: themeBloc.localeAndThemeStream,
           builder: (ctx, snapshot) {
             if (snapshot.hasData) {
-              pp(' 🔵 🔵 🔵'
-                  'build: theme index has changed to ${snapshot.data!.themeIndex}'
+              pp('$mx  🔵🔵🔵 '
+                  'theme index has been set to ${snapshot.data!.themeIndex}'
                   '  and locale is ${snapshot.data!.locale.toString()}');
               themeIndex = snapshot.data!.themeIndex;
             }
@@ -71,7 +72,7 @@ class KasieWeb extends StatelessWidget {
                   animationDuration: const Duration(milliseconds: 2000),
                   curve: Curves.easeInCirc,
                   splashIconSize: 160.0,
-                  nextScreen: const AssociationRouteMaps(),
+                  nextScreen: const AssociationDashboard(),
                   splashTransition: SplashTransition.fadeTransition,
                   pageTransitionType: PageTransitionType.leftToRight,
                   backgroundColor: Colors.blue.shade900,

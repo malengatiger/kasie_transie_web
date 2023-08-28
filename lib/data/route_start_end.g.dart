@@ -27,6 +27,6 @@ Map<String, dynamic> _$RouteStartEndToJson(RouteStartEnd instance) =>
       'startCityName': instance.startCityName,
       'endCityId': instance.endCityId,
       'endCityName': instance.endCityName,
-      'startCityPosition': instance.startCityPosition,
-      'endCityPosition': instance.endCityPosition,
+      'startCityPosition': instance.startCityPosition?.toJson(),
+      'endCityPosition': instance.endCityPosition?.toJson(),
     };

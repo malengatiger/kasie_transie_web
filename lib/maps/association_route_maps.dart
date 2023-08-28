@@ -1,66 +1,23 @@
 import 'dart:async';
 import 'dart:collection';
-import 'dart:convert';
-import 'dart:html';
-import 'dart:js' as js;
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart' as geo;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:kasie_transie_web/blocs/fcm_bloc.dart';
-import 'package:kasie_transie_web/data/ambassador_passenger_count.dart';
-import 'package:kasie_transie_web/data/commuter_request.dart';
-import 'package:kasie_transie_web/data/dispatch_record.dart';
-import 'package:kasie_transie_web/data/location_request.dart';
-import 'package:kasie_transie_web/data/vehicle_arrival.dart';
-import 'package:kasie_transie_web/data/vehicle_departure.dart';
-import 'package:kasie_transie_web/data/vehicle_heartbeat.dart';
-import 'package:kasie_transie_web/email_auth_signin.dart';
-import 'package:kasie_transie_web/l10n/strings_helper.dart';
-import 'package:kasie_transie_web/maps/cluster_maps/cluster_covers.dart';
-import 'package:kasie_transie_web/maps/cluster_maps/commuter_cluster_map.dart';
+import 'package:kasie_transie_web/data/route_bag.dart';
 import 'package:kasie_transie_web/network.dart';
-import 'package:kasie_transie_web/utils/navigator_utils.dart';
-import 'package:kasie_transie_web/utils/prefs.dart';
-import 'package:kasie_transie_web/widgets/association_bag_widget.dart';
-import 'package:kasie_transie_web/widgets/color_grid.dart';
-import 'package:kasie_transie_web/widgets/drop_down_widgets.dart';
-import 'package:kasie_transie_web/widgets/live_activities.dart';
 
-import '../blocs/theme_bloc.dart';
-import '../data/association_bag.dart';
-import '../data/location_response.dart';
-import '../data/route.dart' as lib;
-import '../data/route_bag.dart';
 import '../data/route_landmark.dart';
+import '../data/route.dart' as lib;
+
 import '../data/route_point.dart';
-import '../data/user.dart' as lib;
-import '../utils/color_and_locale.dart';
+import '../data/user.dart';
 import '../utils/emojis.dart';
 import '../utils/functions.dart';
-import '../widgets/demo_driver.dart';
-import '../widgets/language_list.dart';
-import '../widgets/timer_widget.dart';
-
-class GetToken {
-  static Future<String> getToken() async {
-    String associationId =
-        '2f3faebd-6159-4b03-9857-9dad6d9a82ac'; // Replace with actual associationId
-    // Call the JavaScript function to send associationId and get token
-    pp('GetToken: calling Javascript: 🔴 🔴 🔴 🔴 ..... sending associationId: 💪 $associationId 💪');
-    final user = await prefs.getUser();
-    if (user != null) {
-      js.context.callMethod('fetchTokenAndSend', [associationId, user.userId]);
-    }
-
-    return "We good, Boss!";
-  }
-
-  static void _handleTokenFromJs(String token) {
-    // Handle the FCM token obtained from JavaScript
-    pp('GetToken:  🔵 🔵 🔵 🔵 FCM Token from JavaScript: $token');
-  }
-}
+import '../utils/prefs.dart';
+import '../widgets/drop_down_widgets.dart';
+import '../widgets/multi_route_chooser.dart';
 
 class AssociationRouteMaps extends StatefulWidget {
   const AssociationRouteMaps({
@@ -80,17 +37,16 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
   static const defaultZoom = 14.0;
   final Completer<GoogleMapController> _mapController = Completer();
 
-  final CameraPosition _myCurrentCameraPosition = const CameraPosition(
+  CameraPosition? _myCurrentCameraPosition = const CameraPosition(
     target: LatLng(-25.8656, 27.7564),
     zoom: defaultZoom,
   );
-  static const mm = '😡😡😡😡😡😡😡 AssociationRouteOperations: 💪 ';
+  static const mm = ' 💙 💙 💙 💙 💙 💙 AssociationRouteMaps: 💪 ';
   final _key = GlobalKey<ScaffoldState>();
   bool busy = false;
-  bool isHybrid = false;
+  bool isHybrid = true;
+  User? _user;
   final Set<Marker> _markers = HashSet();
-  final Set<Marker> _heartbeatMarkers = HashSet();
-
   final Set<Circle> _circles = HashSet();
   final Set<Polyline> _polyLines = {};
 
@@ -102,32 +58,6 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
   var routeLandmarks = <RouteLandmark>[];
   int landmarkIndex = 0;
   var routes = <lib.Route>[];
-  bool showSignIn = false;
-
-  late StreamSubscription<AssociationBag> assocBagStreamSubscription;
-  late StreamSubscription<VehicleHeartbeat> heartbeatStreamSubscription;
-  late StreamSubscription<VehicleArrival> arrivalStreamSubscription;
-  late StreamSubscription<VehicleDeparture> departureStreamSubscription;
-  late StreamSubscription<DispatchRecord> dispatchStreamSubscription;
-  late StreamSubscription<AmbassadorPassengerCount> passengerStreamSubscription;
-  late StreamSubscription<CommuterRequest> commuterStreamSubscription;
-  late StreamSubscription<LocationRequest> locationRequestStreamSubscription;
-  late StreamSubscription<LocationResponse> locationResponseStreamSubscription;
-
-  String? webToken;
-
-  String assRouteOperations = 'assRouteOperations';
-  String changeColor = 'changeColor';
-  String changeLanguage = 'changeLanguage';
-  String commutersText = 'commuters';
-  String arrivalsText = 'arrivals';
-  String departuresText = 'departures';
-  String dispatchesText = 'dispatches';
-  String timeLastUpdate = 'timeLastUpdate';
-  String emailAddress = 'emailAddress';
-  String password = 'password';
-  String kasieSignIn = 'kasieSignIn';
-  String sendSignIn = 'sendSignIn';
 
   @override
   void initState() {
@@ -135,312 +65,119 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
     _control();
   }
 
-  StringsHelper? stringsHelper;
-
-  Future _setTexts() async {
-    stringsHelper = await StringsHelper.getTranslatedTexts();
-    setState(() {});
-  }
-
-  @override
-  void dispose() {
-    assocBagStreamSubscription.cancel();
-    heartbeatStreamSubscription.cancel();
-    arrivalStreamSubscription.cancel();
-    departureStreamSubscription.cancel();
-    dispatchStreamSubscription.cancel();
-    passengerStreamSubscription.cancel();
-    commuterStreamSubscription.cancel();
-    locationRequestStreamSubscription.cancel();
-    locationResponseStreamSubscription.cancel();
-
-    super.dispose();
-  }
-
-  lib.User? user;
-  AssociationBag? bag;
-
   void _control() async {
-    user = await prefs.getUser();
-    _getColors();
-    await _setTexts();
-    if (user == null) {
-      setState(() {
-        showSignIn = true;
-      });
-      return;
-    } else {
-      GetToken.getToken();
-      fcmBloc.initialize();
-      _setupMessagingListeners();
-    }
-    _listen();
-    _startTimer();
+    _getUser();
   }
 
-  Future _setupMessagingListeners() async {
-    pp('$mm ... _setting up FCM Messaging Listeners to get messages via Javascript ...');
-    // Set up the service worker to listen for FCM messages
-    if (window.navigator.serviceWorker != null) {
-      final sw = await window.navigator.serviceWorker!
-          .register('firebase-messaging-sw.js');
-      pp('$mm Service Worker registered with scope: ${sw.scope} - '
-          '${E.heartBlue} activated: ${sw.active?.state}');
-      // Listen for messages from the service worker
-      sw.addEventListener('message', (event) {
-        final dynamic message = jsonDecode(event as String);
-        pp('$mm Received message from service worker: ${E.leaf} $message ${E.leaf}');
-        // Handle the FCM message here
-      });
-      //
-
-      // Notify the service worker that the Dart app is ready
-      // window.navigator.serviceWorker!.ready.then((registration) {
-      //   registration.active!.postMessage('Dart app is ready');
-      // });
-      window.navigator.serviceWorker!.ready.then((registration) {
-        pp(' ... registration.active!.state: ${registration.active!.state}');
-        registration.active!.postMessage('register');
-      });
-
-      //listen for fcm messages
-      window.onMessage.listen((event) {
-        final dynamic message = event.data;
-        pp('$mm .......................................${E.redDot}'
-            ' message received, will be shipped to FCMBloc');
-        final m = message['mData']['data'];
-        fcmBloc.processFCMessage(convertDynamicMap(m));
-      });
-    } else {
-      pp('$mm ... _setupMessagingListeners NOT set up. ${E.redDot} ${E.redDot} ');
-      return;
-    }
-    pp('$mm Service Worker set up to receive messages ${E.leaf}${E.leaf}${E.leaf}');
-  }
-
-  Map<String, dynamic> convertDynamicMap(Map<dynamic, dynamic> dynamicMap) {
-    final convertedMap = <String, dynamic>{};
-    dynamicMap.forEach((key, value) {
-      if (key is String) {
-        convertedMap[key] = value;
-      } else {
-        // Handle key conversion if needed
-        convertedMap[key.toString()] = value;
-      }
-    });
-    return convertedMap;
-  }
-
-  List<VehicleHeartbeat> heartbeats = [];
-
-  void _listen() {
-    pp('$mm will listen to fcm messaging ... '
-        '${E.heartBlue} ${E.heartBlue} ${E.heartBlue} ...');
-
-    assocBagStreamSubscription =
-        networkHandler.associationBagStream.listen((event) async {
-      pp('$mm associationBagStream delivered event ... ${E.heartBlue} ');
-      bag = event;
-      _showBag = true;
-      final d = DateTime.now().toLocal().toIso8601String();
-      final cl = await prefs.getColorAndLocale();
-      date = await getFmtDate(d, cl.locale, context);
-      if (mounted) {
-        setState(() {});
-      }
-    });
-
-    heartbeatStreamSubscription = fcmBloc.heartbeatStreamStream.listen((event) {
-      pp('$mm heartbeatStreamStream delivered event ... ${E.heartBlue} ');
-      heartbeats.add(event);
-      _addHeartbeatToHash(event);
-    });
-
-    arrivalStreamSubscription = fcmBloc.vehicleArrivalStream.listen((event) {
-      pp('$mm ... vehicleArrivalStream delivered. ');
-      if (mounted) {
-        setState(() {});
-      }
-    });
-    departureStreamSubscription =
-        fcmBloc.vehicleDepartureStream.listen((event) {
-      pp('$mm ... vehicleDepartureStream delivered. ');
-      if (mounted) {
-        setState(() {});
-      }
-    });
-    dispatchStreamSubscription = fcmBloc.dispatchStream.listen((event) {
-      pp('$mm ... dispatchStream delivered. ');
-      if (mounted) {
-        setState(() {});
-      }
-    });
-    passengerStreamSubscription = fcmBloc.passengerCountStream.listen((event) {
-      pp('$mm ... passengerCountStream delivered. ');
-      if (mounted) {
-        setState(() {});
-      }
-    });
-    locationResponseStreamSubscription =
-        fcmBloc.locationResponseStream.listen((event) {
-      pp('$mm ... locationResponseStream delivered. ');
-      if (mounted) {
-        setState(() {});
-      }
-    });
-
-    locationRequestStreamSubscription =
-        fcmBloc.locationRequestStream.listen((event) {
-      pp('$mm ... locationRequestStream delivered. ');
-      if (mounted) {
-        setState(() {});
-      }
-    });
-  }
-
-  List<VehicleHeartbeat> heartbeatsToDisplay = [];
-
-  void _addHeartbeatToHash(VehicleHeartbeat heartbeat) {
-    var hash = HashMap<String, VehicleHeartbeat>();
-    for (var value in heartbeats) {
-      hash[value.vehicleId!] = value;
-    }
-    heartbeatsToDisplay.clear();
-    heartbeatsToDisplay = hash.values.toList();
-    _putHeartbeatsOnMap(heartbeat);
-  }
-
-  void _putHeartbeatsOnMap(VehicleHeartbeat latestHeartbeat) async {
-    pp('$mm ... _putHeartbeatsOnMap ... ${heartbeatsToDisplay.length}');
-    _heartbeatMarkers.clear();
-    for (var hb in heartbeatsToDisplay) {
-      pp('$mm ... putting ${hb.vehicleReg} on map ... ${hb.position!.coordinates}');
-      final icon = await getTaxiMapIcon(
-          iconSize: 108,
-          text: ' ${hb.vehicleReg}',
-          style: const TextStyle(
-              color: Colors.white, fontSize: 14, fontWeight: FontWeight.w900),
-          path: 'assets/car2.png');
-
-      _heartbeatMarkers.add(Marker(
-          markerId: MarkerId('${hb.vehicleId}'),
-          position: LatLng(
-              hb.position!.coordinates.last, hb.position!.coordinates.first),
-          icon: icon,
-          zIndex: 4,
-          infoWindow: InfoWindow(
-              title: '${hb.vehicleReg}',
-              snippet: getFormattedDateLong(hb.created!))));
-
-      _zoomToHeartbeat(latestHeartbeat);
-      setState(() {});
-    }
-  }
-
-  void _getRouteBags() async {
-    user = await prefs.getUser();
-    if (user == null) {
-      return;
-    }
-    pp('\n\n$mm ............. getting route data ..........');
-
+  var bags = <RouteBag>[];
+  Future _getRoutes(bool refresh) async {
     setState(() {
       busy = true;
     });
-
     try {
-      pp('$mm ... calling network.getRouteBags ....!');
-
+      _user = await prefs.getUser();
+      pp('\n\n$mm .......... get all Association Routes ... refresh: $refresh');
       bags = await networkHandler.getRouteBags(
-          associationId: user!.associationId!);
-      pp('$mm .... route bags: ${bags.length}, if > 0, we are in business!!');
-      for (var value in bags) {
-        pp('$mm route: ${value.route!.name} 🔵🔵'
-            '\n🔵 routeLandmarks: ${value.routeLandmarks.length}'
-            '\n🔵 routePoints: ${value.routePoints.length}'
-            '\n🔵 routeCities: ${value.routeCities.length}');
+          associationId: _user!.associationId!);
+      routes.clear();
+      bags.forEach((element) {
+        routes.add(element.route!);
+      });
+      _printRoutes();
+      await _filter();
+      routesPicked = routes;
+      _buildMap();
+      if (mounted) {
+        showToast(
+            backgroundColor: Colors.black,
+            textStyle: const TextStyle(
+                color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+            padding: 24.0,
+            duration: const Duration(seconds: 3),
+            message: 'Please select routes',
+            context: context);
       }
-      final cl = await prefs.getColorAndLocale();
-      date = await getFmtDate(
-          DateTime.now().toIso8601String(), cl.locale, context);
-      _filter();
-
     } catch (e) {
-      pp(e.toString());
-      showToast(
-          backgroundColor: Colors.red,
-          textStyle: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-          padding: 24,
-          duration: Duration(seconds: 5),
-          message: stringsHelper!.serverUnreachable, context: context);
+      pp(e);
+      if (mounted) {
+        showSnackBar(
+            backgroundColor: Colors.amber[700],
+            textStyle: myTextStyleMediumBlack(context),
+            message: 'Error: $e',
+            context: context);
+      }
     }
     setState(() {
       busy = false;
     });
   }
 
-  int intervalSeconds = 60;
-  int minutes = 30;
-  bool _showBag = false;
-
-  void _startTimer() async {
-    final startDate = DateTime.now()
-        .toUtc()
-        .subtract(Duration(minutes: minutes))
-        .toIso8601String();
-
-    networkHandler.startTimer(
-        associationId: user!.associationId!,
-        startDate: startDate,
-        intervalSeconds: intervalSeconds);
-  }
-
   void _printRoutes() {
     int cnt = 1;
     for (var r in routes) {
-      pp('$mm route #:$cnt ${E.appleRed} ${r.name}');
+      pp('$mm ........... route #:$cnt ${E.appleRed} ${r.name}');
       cnt++;
     }
   }
 
-  var bags = <RouteBag>[];
-
   Future<void> _filter() async {
-    routesPicked.clear();
+    routes.clear();
     for (var bag in bags) {
-      if (bag.routeLandmarks.isNotEmpty) {
-        routesPicked.add(bag.route!);
+      final marks = bag.routeLandmarks.length;
+      if (marks > 0) {
+        routes.add(bag.route!);
       }
     }
     _printRoutes();
-    pp('$mm ... routes filtered: ${routesPicked.length}');
-    _buildAssociationMap();
+    pp('$mm ... routes filtered: ${routes.length}');
   }
 
   var routesPicked = <lib.Route>[];
 
+  void _showBottomSheet() async {
+    final type = getThisDeviceType();
+    showModalBottomSheet(
+        context: context,
+        builder: (ctx) {
+          return Padding(
+            padding:
+                EdgeInsets.symmetric(horizontal: type == 'phone' ? 12.0 : 48),
+            child: MultiRouteChooser(
+              onRoutesPicked: (routesPicked) {
+                setState(() {
+                  this.routesPicked = routesPicked;
+                });
+                Navigator.of(context).pop();
+                _buildMap();
+              },
+              routes: routes,
+            ),
+          );
+        });
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
   Color newColor = Colors.black;
   String? stringColor;
+
+  Future _getUser() async {
+    _user = await prefs.getUser();
+  }
 
   Future<void> _zoomToBeginningOfRoute(lib.Route route) async {
     if (route.routeStartEnd != null) {
       final latLng = LatLng(
-          route.routeStartEnd!.startCityPosition!.coordinates!.last,
-          route.routeStartEnd!.startCityPosition!.coordinates!.first);
+          route.routeStartEnd!.startCityPosition!.coordinates.last,
+          route.routeStartEnd!.startCityPosition!.coordinates.first);
       var cameraPos = CameraPosition(target: latLng, zoom: 12.0);
       final GoogleMapController controller = await _mapController.future;
       controller.animateCamera(CameraUpdate.newCameraPosition(cameraPos));
       setState(() {});
     }
-  }
-
-  Future<void> _zoomToHeartbeat(VehicleHeartbeat hb) async {
-    final latLng =
-        LatLng(hb.position!.coordinates!.last, hb.position!.coordinates!.first);
-    var cameraPos = CameraPosition(target: latLng, zoom: 16.0);
-    final GoogleMapController controller = await _mapController.future;
-    controller.animateCamera(CameraUpdate.newCameraPosition(cameraPos));
-    setState(() {});
   }
 
   int index = 0;
@@ -450,16 +187,15 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
       {required List<RouteLandmark> routeLandmarks,
       required List<BitmapDescriptor> icons,
       required String color}) async {
-    // pp('$mm .......... _addLandmarks ....... .');
-    routeLandmarks.sort((a, b) => a.index!.compareTo(b.index!));
+    pp('$mm .......... _addLandmarks ....... .');
 
     int landmarkIndex = 0;
     for (var routeLandmark in routeLandmarks) {
       _markers.add(Marker(
           markerId: MarkerId(routeLandmark.landmarkId!),
           icon: icons.elementAt(landmarkIndex),
-          position: LatLng(routeLandmark.position!.coordinates![1],
-              routeLandmark.position!.coordinates![0]),
+          position: LatLng(routeLandmark.position!.coordinates[1],
+              routeLandmark.position!.coordinates[0]),
           infoWindow: InfoWindow(
               title: routeLandmark.landmarkName,
               snippet: '🍎Part of ${routeLandmark.routeName}')));
@@ -471,12 +207,12 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
   var widthIndex = 0;
 
   void _addPolyLine(List<RoutePoint> points, Color color) {
-    // pp('$mm .......... _addPolyLine ....... points: ${points.length}.');
+    pp('$mm .......... _addPolyLine ....... points: ${points.length}.');
     var mPoints = <LatLng>[];
     points.sort((a, b) => a.index!.compareTo(b.index!));
     for (var rp in points) {
       mPoints.add(LatLng(
-          rp.position!.coordinates!.last, rp.position!.coordinates!.first));
+          rp.position!.coordinates.last, rp.position!.coordinates.first));
     }
     int width = (widthIndex + 1) * 6;
     if (width > 12) {
@@ -484,7 +220,7 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
     }
     var polyLine = Polyline(
         color: color,
-        width: 6,
+        width: 8,
         points: mPoints,
         onTap: () {
           pp('$mm ... polyLine tapped; route: ${points.first.routeName}');
@@ -497,455 +233,222 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
 
     _polyLines.add(polyLine);
     widthIndex++;
+    setState(() {});
   }
 
   Route? routeSelected;
   final hashMap = HashMap<String, MapBag>();
 
-  List<RouteLandmark> getLandmarks(String routeId) {
-    for (var bag in bags) {
+  List<RouteLandmark> getRouteMarks(String routeId) {
+    var marks = <RouteLandmark>[];
+    bags.forEach((bag) {
       if (bag.route!.routeId! == routeId) {
-        return bag.routeLandmarks;
+        marks = bag.routeLandmarks;
       }
-    }
-    return [];
+    });
+
+    return marks;
   }
 
   List<RoutePoint> getRoutePoints(String routeId) {
-    for (var bag in bags) {
+    var marks = <RoutePoint>[];
+    bags.forEach((bag) {
       if (bag.route!.routeId! == routeId) {
-        return bag.routePoints;
+        marks = bag.routePoints;
       }
-    }
-    return [];
+    });
+
+    return marks;
   }
 
-  void _buildAssociationMap() async {
-    pp('\n\n\n$mm ... _buildAssociationMap: routes: ${routesPicked.length}');
-    _markers.clear();
-    _polyLines.clear();
-    var count = 0;
+  void _buildMap() async {
+    pp('$mm ... _buildHashMap: routesPicked: ${routesPicked.length}');
     for (var route in routesPicked) {
       final points = getRoutePoints(route.routeId!);
-      final marks = getLandmarks(route.routeId!);
+      final marks = getRouteMarks(route.routeId!);
       final icons = <BitmapDescriptor>[];
-      await _getIcons(marks, route, icons);
-      _addPolyLine(points, getColor(route.color!));
-      _addLandmarks(routeLandmarks: marks, icons: icons, color: route.color!);
-      count++;
-      pp('$mm ...route has been added: ${E.blueDot} #$count ${E.blueDot} route: ${route.name} ');
+      for (var i = 0; i < marks.length; i++) {
+        final icon = await getMarkerBitmap(72,
+            text: '${i + 1}',
+            color: route.color!,
+            fontSize: 28,
+            fontWeight: FontWeight.w900);
+        icons.add(icon);
+      }
+      final bag = MapBag(route, points, marks, icons);
+      hashMap[route.routeId!] = bag;
     }
+    pp('$mm ... _buildHashMap: hashMap built: ${hashMap.length}');
 
-    if (routesPicked.isNotEmpty) {
-      _zoomToBeginningOfRoute(routesPicked.first);
+    _markers.clear();
+    _polyLines.clear();
+
+    final list = hashMap.values.toList();
+    for (var bag in list) {
+      _addPolyLine(bag.routePoints, getColor(bag.route.color!));
+      _addLandmarks(
+          routeLandmarks: bag.routeLandmarks,
+          icons: bag.landmarkIcons,
+          color: bag.route.color!);
     }
-  }
-
-  Future<void> _getIcons(List<RouteLandmark> marks, lib.Route route,
-      List<BitmapDescriptor> icons) async {
-    for (var i = 0; i < marks.length; i++) {
-      final icon = await getMarkerBitmap(80,
-          text: '${i + 1}',
-          color: route.color!,
-          fontSize: 14,
-          fontWeight: FontWeight.w900);
-      icons.add(icon);
+    if (hashMap.isNotEmpty) {
+      _zoomToBeginningOfRoute(hashMap.values.toList().first.route);
     }
-  }
-
-  void onColorChosen(ColorFromTheme colorFromTheme) async {
-    pp('$mm onColorChosen, index: ${colorFromTheme.themeIndex}');
-    colorAndLocale.themeIndex = colorFromTheme.themeIndex;
-    prefs.saveColorAndLocale(colorAndLocale);
-    themeBloc.changeColorAndLocale(colorAndLocale);
-    setState(() {
-      this.colorFromTheme = colorFromTheme;
-    });
-  }
-
-  void onLanguageChosen(LangBag langBag) async {
-    pp('$mm onLanguageChosen, index: ${langBag.language}');
-    colorAndLocale.locale = langBag.locale;
-    prefs.saveColorAndLocale(colorAndLocale);
-    themeBloc.changeColorAndLocale(colorAndLocale);
-    await _setTexts();
-    setState(() {
-      _refresh = !_refresh;
-    });
   }
 
   int distanceInKM = 100;
-  String date = 'just now';
-  bool _showColorSheet = false;
-  bool _showLanguage = false;
-  bool _refresh = false;
-  bool _showDemoDriver = false;
-  var commuterRequestCovers = <CommuterRequestCover>[];
-
-  void _navigateToCommuterMap() {
-    if (bag != null) {
-      for (var value in bag!.commuterRequests) {
-        commuterRequestCovers.add(CommuterRequestCover(
-            latLng: LatLng(value.currentPosition!.coordinates.last,
-                value.currentPosition!.coordinates.first),
-            request: value));
-      }
-
-      pp('$mm ... navigating with ${commuterRequestCovers.length} commuter requests');
-      navigateWithScale(
-          CommuterClusterMap(
-              commuterRequestCovers: commuterRequestCovers,
-              date: date,
-              routes: routes),
-          context);
-    }
-  }
-  
-  void _navigateToDemoDriver() async {
-    navigateWithScale(DemoDriver(routes: routesPicked, associationId: user!.associationId!,), context);
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
         appBar: AppBar(
-          title: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              stringsHelper == null
-                  ? gapW32
-                  : Text(
-                      stringsHelper!.assRouteOperations,
-                      style: myTextStyleMediumLargeWithColor(
-                          context, Theme.of(context).primaryColor, 32),
-                    ),
-              gapW32,
-              ControlWidget(
-                minutes: minutes,
-                onMinutesPicked: (min) {
-                  setState(() {
-                    minutes = min;
-                  });
-                  _startTimer();
-                },
-                numberInMinutes:
-                    stringsHelper == null ? '' : stringsHelper!.numberMinutes,
-              ),
-            ],
-          ),
-          actions: [
-            IconButton(
-                onPressed: () {
-                  _navigateToCommuterMap();
-                },
-                icon: Icon(
-                  Icons.people,
-                  color: Theme.of(context).primaryColor,
-                )),
-            IconButton(
-                onPressed: () {
-                  setState(() {
-                    _showColorSheet = true;
-                  });
-                },
-                icon: Icon(
-                  Icons.color_lens_outlined,
-                  color: Theme.of(context).primaryColor,
-                )),
-            IconButton(
-                onPressed: () {
-                  setState(() {
-                    _showLanguage = true;
-                  });
-                },
-                icon: Icon(
-                  Icons.language,
-                  color: Theme.of(context).primaryColor,
-                )),
-          ],
-        ),
-        key: _key,
-        drawer: Drawer(
-          elevation: 12,
-          child: ListView(
-            children: [
-              DrawerHeader(
-                decoration: const BoxDecoration(
-                  color: Colors.black38,
-                ),
-                child: SizedBox(
-                  height: 340,
-                  child: Column(
+          title: const Text('Association Routes'),
+          bottom: PreferredSize(
+              preferredSize: const Size.fromHeight(64),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Image.asset(
-                        'assets/gio.png',
-                        height: 80,
-                        width: 80,
+                      ElevatedButton(
+                          style: const ButtonStyle(
+                            elevation: MaterialStatePropertyAll(8.0),
+                          ),
+                          onPressed: () {
+                            _showBottomSheet();
+                          },
+                          child: SizedBox(
+                            width: 160,
+                            child: Text('${routes.length} Routes'),
+                          )),
+                      gapW8,
+                      Text(
+                        'Distance',
+                        style: myTextStyleSmall(context),
                       ),
-                      SizedBox(
-                          child: Text(
-                        'Kasie Transie',
-                        style: myTextStyleMediumLargeWithColor(
-                            context, Theme.of(context).primaryColorLight, 28),
-                      )),
+                      gapW8,
+                      DistanceDropDown(
+                        onDistancePicked: (dist) {
+                          setState(() {
+                            distanceInKM = dist;
+                          });
+                          _getRoutes(true);
+                        },
+                        color: Theme.of(context).primaryColor,
+                        count: 12,
+                        fontSize: 16,
+                        multiplier: 50,
+                      ),
                     ],
                   ),
-                ),
-              ),
-              gapH32,
-              gapH32,
-              const ListTile(
-                leading: Icon(Icons.airport_shuttle),
-                title: Text('Dispatch Records'),
-              ),
-              gapH32,
-              const ListTile(
-                leading: Icon(Icons.airport_shuttle),
-                title: Text('Vehicle Arrivals'),
-              ),
-              gapH32,
-              const ListTile(
-                leading: Icon(Icons.airport_shuttle),
-                title: Text('Passengers'),
-              ),
-              gapH32,
-              const ListTile(
-                leading: Icon(Icons.airport_shuttle),
-                title: Text('Vehicle Departures'),
-              ),
-              gapH32,
-              const ListTile(
-                leading: Icon(Icons.airport_shuttle),
-                title: Text('Vehicle Heartbeats'),
-              ),
-            ],
-          ),
+                  gapH16,
+                ],
+              )),
         ),
-        body: Stack(children: [
-          GoogleMap(
-            mapType: isHybrid ? MapType.hybrid : MapType.normal,
-            myLocationEnabled: true,
-            markers: _markers..addAll(_heartbeatMarkers),
-            circles: _circles,
-            polylines: _polyLines,
-            initialCameraPosition: _myCurrentCameraPosition,
-            onTap: (latLng) {
-              pp('$mm .......... on map tapped : $latLng .');
-            },
-            onMapCreated: (GoogleMapController controller) {
-              pp('$mm .......... on onMapCreated .....');
-              _mapController.complete(controller);
-              _getRouteBags();
-            },
-          ),
-          Positioned(
-              child: LiveDisplay(
-            width: 600,
-            cutoffDate:
-                DateTime.now().toUtc().subtract(Duration(minutes: minutes)),
-          )),
-          Positioned(
-              right: 0,
-              top: 0,
-              child: Container(
-                color: Colors.black45,
-                child: Padding(
-                  padding: const EdgeInsets.all(0.0),
-                  child: IconButton(
-                      onPressed: () {
-                        setState(() {
-                          isHybrid = !isHybrid;
-                        });
-                      },
-                      icon: Icon(
-                        Icons.album_outlined,
-                        color: isHybrid ? Colors.yellow : Colors.white,
-                      )),
+        key: _key,
+        body: _myCurrentCameraPosition == null
+            ? Center(
+                child: Text(
+                  'Waiting for GPS location ...',
+                  style: myTextStyleMediumBold(context),
                 ),
-              )),
-          Positioned(
-              right: 0,
-              top: 60,
-              child: Container(
-                color: Colors.black45,
-                child: Padding(
-                  padding: const EdgeInsets.all(0.0),
-                  child: IconButton(
-                      onPressed: () {
-                        _navigateToDemoDriver();
-                      },
-                      icon: Icon(
-                        Icons.add_alert_sharp,
-                        color: isHybrid ? Colors.white : Colors.amber,
-                      )),
+              )
+            : Stack(children: [
+                GoogleMap(
+                  mapType: isHybrid ? MapType.hybrid : MapType.normal,
+                  myLocationEnabled: true,
+                  markers: _markers,
+                  circles: _circles,
+                  polylines: _polyLines,
+                  initialCameraPosition: _myCurrentCameraPosition!,
+                  // onTap: (latLng) {
+                  //   pp('$mm .......... on map tapped : $latLng .');
+                  // },
+                  onMapCreated: (GoogleMapController controller) {
+                    pp('$mm .......... on onMapCreated .....');
+                    _mapController.complete(controller);
+                    _getRoutes(false);
+                  },
                 ),
-              )),
-
-          showSignIn
-              ? Positioned(
-                  child: Center(
-                  child: SizedBox(
-                    height: 400,
-                    child: EmailAuthSignin(
-                        refresh: _refresh,
-                        onGoodSignIn: (mUser) {
-                          pp('$mm ......... sign in COOL, will get route data ${E.leaf}');
-                          setState(() {
-                            showSignIn = false;
-                            user = mUser;
-                          });
-                          _getRouteBags();
-                          _control();
-                        },
-                        onSignInError: () {
-                          pp('$mm sign in error ${E.redDot}');
-                          if (mounted) {
-                            showSnackBar(
-                                backgroundColor: Colors.red,
-                                textStyle: const TextStyle(color: Colors.white),
-                                message: 'Sign In failed: $e',
-                                context: context);
-                          }
-                        }),
-                  ),
-                ))
-              : gapW4,
-          _showBag
-              ? Positioned(
-                  right: 8,
-                  top: 32,
-                  child: stringsHelper == null
-                      ? gapW32
-                      : AssociationBagWidget(
-                          bag: bag!,
-                          width: 360,
-                          date: date,
-                          operationsSummary: stringsHelper!.operationsSummary,
-                          dispatches: stringsHelper!.dispatchesText,
-                          passengers: stringsHelper!.passengers,
-                          arrivals: stringsHelper!.arrivalsText,
-                          departures: stringsHelper!.departuresText,
-                          heartbeats: stringsHelper!.heartbeats,
-                          lastUpdated: stringsHelper!.timeLastUpdate))
-              : gapW32,
-          _showColorSheet
-              ? Positioned(
-                  right: 12,
-                  top: 12,
-                  child: ColorGrid(
-                    colors: colors,
-                    onColorChosen: (clr) {
-                      onColorChosen(clr);
-                    },
-                    onClose: () {
-                      setState(() {
-                        _showColorSheet = false;
-                      });
-                    },
-                    changeColor: stringsHelper!.changeColor,
-                  ))
-              : gapW8,
-          _showLanguage
-              ? Positioned(
-                  right: 12,
-                  top: 12,
-                  child: LanguageList(onClose: () {
-                    setState(() {
-                      _showLanguage = false;
-                    });
-                  }, onLanguageChosen: (lang) {
-                    pp('$mm language chosen: $lang');
-                    onLanguageChosen(lang);
-                  }))
-              : gapW32,
-          busy
-              ? Positioned(
-                  left: 400,
-                  right: 400,
-                  bottom: 200,
-                  top: 200,
-                  child: Center(
-                    child: Card(
-                      shape: getDefaultRoundedBorder(),
-                      elevation: 16,
-                      child: stringsHelper == null
-                          ? gapW32
-                          : TimerWidget(
-                              title: stringsHelper!.dataLoader,
-                              subTitle: stringsHelper!.thisMayTakeMinutes,
+                Positioned(
+                    right: 12,
+                    top: 120,
+                    child: Container(
+                      color: Colors.black45,
+                      child: Padding(
+                        padding: const EdgeInsets.all(0.0),
+                        child: IconButton(
+                            onPressed: () {
+                              setState(() {
+                                isHybrid = !isHybrid;
+                              });
+                            },
+                            icon: Icon(
+                              Icons.album_outlined,
+                              color: isHybrid ? Colors.yellow : Colors.white,
+                            )),
+                      ),
+                    )),
+                busy
+                    ? const Positioned(
+                        top: 160,
+                        left: 48,
+                        child: Center(
+                          child: SizedBox(
+                            height: 24,
+                            width: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 12,
+                              backgroundColor: Colors.pink,
                             ),
-                    ),
-                  ))
-              : gapW4,
-        ]));
-  }
-
-  List<ColorFromTheme> colors = [];
-  List<LangBag> languageBags = [];
-  late ColorAndLocale colorAndLocale;
-  ColorFromTheme? colorFromTheme;
-
-  void _getColors() async {
-    //todo - switch dark & light
-    setState(() {
-      busy = true;
-    });
-    try {
-      colors = SchemeUtil.getDarkThemeColors();
-      colorAndLocale = await prefs.getColorAndLocale();
-      colorFromTheme = SchemeUtil.getColorFromTheme(colorAndLocale);
-    } catch (e) {
-      pp(e);
-    }
-
-    setState(() {
-      busy = false;
-    });
+                          ),
+                        ),
+                      )
+                    : const SizedBox(),
+              ]));
   }
 }
 
-class ControlWidget extends StatelessWidget {
-  const ControlWidget(
-      {super.key,
-      required this.minutes,
-      required this.onMinutesPicked,
-      required this.numberInMinutes});
-
-  final int minutes;
-  final String numberInMinutes;
-  final Function(int) onMinutesPicked;
+class RouteDropDown extends StatelessWidget {
+  const RouteDropDown(
+      {Key? key, required this.routes, required this.onRoutePicked})
+      : super(key: key);
+  final List<lib.Route> routes;
+  final Function(lib.Route) onRoutePicked;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Text(numberInMinutes,
-            style: myTextStyleMediumLargeWithColor(
-                context, Theme.of(context).primaryColor, 12)),
-        gapW32,
-        Text(
-          '$minutes',
-          style: myTextStyleMediumLargeWithColor(
-              context, Theme.of(context).primaryColor, 20),
+    final items = <DropdownMenuItem<lib.Route>>[];
+    for (var r in routes) {
+      items.add(DropdownMenuItem<lib.Route>(
+          value: r,
+          child: SizedBox(
+            // width: 600,
+            child: Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    r.name!,
+                    softWrap: false,
+                    overflow: TextOverflow.ellipsis,
+                    style: myTextStyleSmall(context),
+                  ),
+                ),
+              ],
+            ),
+          )));
+    }
+    return DropdownButton(
+        hint: Text(
+          'Select Route',
+          style: myTextStyleSmall(context),
         ),
-        gapW32,
-        NumberDropDown(
-          onNumberPicked: (number) {
-            var m = number;
-            if (m == 0) {
-              m = 30;
-            } else {
-              m = number;
-            }
-            onMinutesPicked(m);
-          },
-          color: Theme.of(context).primaryColorLight,
-          count: 12,
-          fontSize: 16,
-          multiplier: 30,
-        ),
-      ],
-    );
+        items: items,
+        onChanged: (r) {
+          if (r != null) {
+            onRoutePicked(r);
+          }
+        });
   }
 }
 

@@ -2,8 +2,8 @@ import 'package:json_annotation/json_annotation.dart';
 
 part 'position.g.dart';
 
-@JsonSerializable()
 
+@JsonSerializable(explicitToJson: true)
 class Position {
   String? type = 'Point';
   List<double> coordinates = [];

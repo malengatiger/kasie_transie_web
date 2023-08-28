@@ -22,8 +22,8 @@ RouteBag _$RouteBagFromJson(Map<String, dynamic> json) => RouteBag(
     );
 
 Map<String, dynamic> _$RouteBagToJson(RouteBag instance) => <String, dynamic>{
-      'route': instance.route,
-      'routeLandmarks': instance.routeLandmarks,
-      'routePoints': instance.routePoints,
-      'routeCities': instance.routeCities,
+      'route': instance.route?.toJson(),
+      'routeLandmarks': instance.routeLandmarks.map((e) => e.toJson()).toList(),
+      'routePoints': instance.routePoints.map((e) => e.toJson()).toList(),
+      'routeCities': instance.routeCities.map((e) => e.toJson()).toList(),
     };

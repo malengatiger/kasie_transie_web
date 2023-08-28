@@ -3,7 +3,7 @@ import 'package:json_annotation/json_annotation.dart';
 
 part 'association.g.dart';
 
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class Association {
   String? cityId;
   String? countryId;

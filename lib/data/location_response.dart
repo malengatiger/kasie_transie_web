@@ -3,7 +3,7 @@ import 'package:json_annotation/json_annotation.dart';
 
 part 'location_response.g.dart';
 
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class LocationResponse {
   String? userId;
   String? vehicleId, vehicleReg;

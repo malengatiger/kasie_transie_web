@@ -2,7 +2,7 @@ import 'package:json_annotation/json_annotation.dart';
 import 'package:kasie_transie_web/data/route_bag.dart';
 part 'route_bag_list.g.dart';
 
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 
 class RouteBagList {
   List<RouteBag> routeBags = [];

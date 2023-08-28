@@ -37,7 +37,7 @@ Map<String, dynamic> _$DispatchRecordToJson(DispatchRecord instance) =>
       'passengers': instance.passengers,
       'ownerId': instance.ownerId,
       'created': instance.created,
-      'position': instance.position,
+      'position': instance.position?.toJson(),
       'geoHash': instance.geoHash,
       'landmarkName': instance.landmarkName,
       'marshalName': instance.marshalName,

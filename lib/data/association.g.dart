@@ -36,7 +36,7 @@ Map<String, dynamic> _$AssociationToJson(Association instance) =>
       'active': instance.active,
       'countryName': instance.countryName,
       'dateRegistered': instance.dateRegistered,
-      'position': instance.position,
+      'position': instance.position?.toJson(),
       'geoHash': instance.geoHash,
       'adminUserFirstName': instance.adminUserFirstName,
       'adminUserLastName': instance.adminUserLastName,

@@ -2,7 +2,7 @@ import 'package:json_annotation/json_annotation.dart';
 
 part 'calculated_distance.g.dart';
 
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class CalculatedDistance {
   String? routeName, routeId;
   String? fromLandmark, toLandmark, fromLandmarkId, toLandmarkId, associationId;

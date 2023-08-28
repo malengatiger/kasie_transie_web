@@ -3,8 +3,7 @@ import 'package:json_annotation/json_annotation.dart';
 
 part 'vehicle_heartbeat.g.dart';
 
-@JsonSerializable()
-
+@JsonSerializable(explicitToJson: true)
 class VehicleHeartbeat {
   String? vehicleHeartbeatId;
 

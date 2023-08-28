@@ -3,8 +3,7 @@ import 'package:json_annotation/json_annotation.dart';
 
 part 'commuter_request.g.dart';
 
-@JsonSerializable()
-
+@JsonSerializable(explicitToJson: true)
 class CommuterRequest {
   String? commuterId;
   String? commuterRequestId, routeId;

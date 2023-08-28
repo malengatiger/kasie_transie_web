@@ -28,7 +28,7 @@ VehicleHeartbeat _$VehicleHeartbeatFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$VehicleHeartbeatToJson(VehicleHeartbeat instance) =>
     <String, dynamic>{
       'vehicleHeartbeatId': instance.vehicleHeartbeatId,
-      'position': instance.position,
+      'position': instance.position?.toJson(),
       'geoHash': instance.geoHash,
       'created': instance.created,
       'vehicleId': instance.vehicleId,

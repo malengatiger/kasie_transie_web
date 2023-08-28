@@ -32,7 +32,7 @@ Map<String, dynamic> _$VehicleArrivalToJson(VehicleArrival instance) =>
       'vehicleArrivalId': instance.vehicleArrivalId,
       'landmarkId': instance.landmarkId,
       'landmarkName': instance.landmarkName,
-      'position': instance.position,
+      'position': instance.position?.toJson(),
       'geoHash': instance.geoHash,
       'created': instance.created,
       'vehicleId': instance.vehicleId,

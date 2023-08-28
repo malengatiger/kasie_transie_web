@@ -3,8 +3,7 @@ import 'package:json_annotation/json_annotation.dart';
 
 part 'vehicle_arrival.g.dart';
 
-@JsonSerializable()
-
+@JsonSerializable(explicitToJson: true)
 class VehicleArrival {
   String? vehicleArrivalId;
   String? landmarkId;

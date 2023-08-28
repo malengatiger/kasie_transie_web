@@ -3,8 +3,7 @@ import 'package:kasie_transie_web/data/position.dart';
 
 part 'dispatch_record.g.dart';
 
-@JsonSerializable()
-
+@JsonSerializable(explicitToJson: true)
 class DispatchRecord {
   String? dispatchRecordId;
   String? marshalId;

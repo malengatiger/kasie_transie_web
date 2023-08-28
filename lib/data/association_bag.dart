@@ -8,7 +8,8 @@ import 'package:json_annotation/json_annotation.dart';
 
 part 'association_bag.g.dart';
 
-@JsonSerializable()
+
+@JsonSerializable(explicitToJson: true)
 class AssociationBag {
   List<AmbassadorPassengerCount> passengerCounts = [];
   List<VehicleHeartbeat> heartbeats = [];

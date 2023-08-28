@@ -32,5 +32,5 @@ Map<String, dynamic> _$RoutePointToJson(RoutePoint instance) =>
       'created': instance.created,
       'routeId': instance.routeId,
       'routeName': instance.routeName,
-      'position': instance.position,
+      'position': instance.position?.toJson(),
     };

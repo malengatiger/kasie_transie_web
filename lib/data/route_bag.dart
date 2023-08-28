@@ -7,7 +7,7 @@ import 'package:json_annotation/json_annotation.dart';
 
 part 'route_bag.g.dart';
 
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class RouteBag {
   Route? route;
   List<RouteLandmark> routeLandmarks = [];

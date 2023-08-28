@@ -3,7 +3,7 @@ import 'package:json_annotation/json_annotation.dart';
 
 part 'route_start_end.g.dart';
 
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class RouteStartEnd {
   String? startCityId, startCityName;
   String? endCityId, endCityName;

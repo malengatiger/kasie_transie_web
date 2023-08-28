@@ -6,6 +6,7 @@ import 'package:kasie_transie_web/l10n/strings_helper.dart';
 import 'package:kasie_transie_web/network.dart';
 import 'package:kasie_transie_web/utils/functions.dart';
 import 'package:kasie_transie_web/utils/signin_strings.dart';
+import 'package:kasie_transie_web/widgets/timer_widget.dart';
 
 import '../data/user.dart' as lib;
 import '../utils/emojis.dart';
@@ -14,7 +15,10 @@ import 'l10n/translation_handler.dart';
 
 class EmailAuthSignin extends StatefulWidget {
   const EmailAuthSignin(
-      {Key? key, required this.onGoodSignIn, required this.onSignInError, required this.refresh})
+      {Key? key,
+      required this.onGoodSignIn,
+      required this.onSignInError,
+      required this.refresh})
       : super(key: key);
 
   final Function(lib.User) onGoodSignIn;
@@ -32,6 +36,8 @@ class EmailAuthSigninState extends State<EmailAuthSignin>
   TextEditingController emailController =
       TextEditingController(text: "robertg@gmail.com");
   TextEditingController pswdController = TextEditingController(text: "pass123");
+  TextEditingController pswd2Controller =
+      TextEditingController(text: "pass123");
 
   late StreamSubscription<bool> subscription;
   var formKey = GlobalKey<FormState>();
@@ -53,18 +59,17 @@ class EmailAuthSigninState extends State<EmailAuthSignin>
     subscription = translator.translationStream.listen((event) {
       pp('$mm ... translationStream ');
       if (mounted) {
-        setState(() {
-
-        });();
+        setState(() {});
+        ();
       }
     });
   }
+
   Future _setTexts() async {
     stringsHelper = await StringsHelper.getTranslatedTexts();
-    setState(() {
-
-    });
+    setState(() {});
   }
+
   @override
   void dispose() {
     _controller.dispose();
@@ -95,14 +100,8 @@ class EmailAuthSigninState extends State<EmailAuthSignin>
           pp('\n\n\n$mm ... about to pop! ..... ');
 
           if (mounted) {
-            showSnackBar(
-                duration: const Duration(seconds: 2),
-                padding: 20,
-                backgroundColor: Theme.of(context).primaryColor,
-                textStyle: myTextStyleMedium(context),
-                message: 'You have been signed in OK. Welcome!',
-                context: context);
-            widget.onGoodSignIn(user!);
+            // widget.onGoodSignIn(user!);
+            Navigator.of(context).pop();
           }
         }
       } else {
@@ -159,85 +158,102 @@ class EmailAuthSigninState extends State<EmailAuthSignin>
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: SizedBox(
-        width: 480,
-        child: Card(
-          shape: getDefaultRoundedBorder(),
-          elevation: 8,
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                stringsHelper == null? gapW32 : Expanded(
-                    child: Form(
-                  key: formKey,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Text(
-                        stringsHelper!.signInWithEmail,
-                        style: myTextStyleMediumLargeWithColor(
-                            context, Theme.of(context).primaryColor, 20),
-                      ),
-                      gapH32,
-                      SizedBox(
-                        width: 420,
-                        child: TextFormField(
-                          controller: emailController,
-                          decoration: InputDecoration(
-                            label:  Text(stringsHelper!.emailAddress),
-                            hintText: stringsHelper!.enterEmail,
-                            icon: const Icon(Icons.email),
-                            iconColor: Theme.of(context).primaryColor,
-                          ),
-                        ),
-                      ),
-                      gapH32,
-                      SizedBox(
-                        width: 420,
-                        child: TextFormField(
-                          controller: pswdController,
-                          obscureText: true,
-                          decoration: InputDecoration(
-                            label:  Text(stringsHelper!.password),
-                            hintText: stringsHelper!.enterPassword,
-                            icon: const Icon(Icons.lock),
-                            iconColor: Theme.of(context).primaryColor,
-                          ),
-                        ),
-                      ),
-                      gapH32,
-                      gapH16,
-                      busy
-                          ? const SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 12,
-                                backgroundColor: Colors.amber,
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          'Kasie Transie Sign In',
+          style: myTextStyleLarge(context),
+        ),
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 64.0, vertical: 120),
+          child: busy? TimerWidget(title: 'Signing in'): Card(
+            shape: getDefaultRoundedBorder(),
+            elevation: 8,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  stringsHelper == null
+                      ? gapW32
+                      : Expanded(
+                          child: Form(
+                          key: formKey,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Text(
+                                stringsHelper!.signInWithEmail,
+                                style: myTextStyleMediumLargeWithColor(
+                                    context, Theme.of(context).primaryColor, 20),
                               ),
-                            )
-                          : ElevatedButton(
-                              style: const ButtonStyle(
-                                elevation:
-                                    MaterialStatePropertyAll<double>(8.0),
+                              gapH32,
+                              SizedBox(
+                                width: 420,
+                                child: TextFormField(
+                                  controller: emailController,
+                                  decoration: InputDecoration(
+                                    label: Text(stringsHelper!.emailAddress),
+                                    hintText: stringsHelper!.enterEmail,
+                                    icon: const Icon(Icons.email),
+                                    iconColor: Theme.of(context).primaryColor,
+                                  ),
+                                ),
                               ),
-                              onPressed: () {
-                                _signIn();
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child:  Text(stringsHelper!.sendSignIn),
-                              )),
-                      gapH32,
-                    ],
-                  ),
-                ))
-              ],
+                              gapH32,
+                              SizedBox(
+                                width: 420,
+                                child: TextFormField(
+                                  controller: pswdController,
+                                  obscureText: true,
+                                  decoration: InputDecoration(
+                                    label: Text(stringsHelper!.password),
+                                    hintText: stringsHelper!.enterPassword,
+                                    icon: const Icon(Icons.lock),
+                                    iconColor: Theme.of(context).primaryColor,
+                                  ),
+                                ),
+                              ),
+                              gapH32,
+                              SizedBox(
+                                width: 420,
+                                child: TextFormField(
+                                  controller: pswd2Controller,
+                                  obscureText: true,
+                                  decoration: InputDecoration(
+                                    label: Text(stringsHelper!.password),
+                                    hintText: stringsHelper!.enterPassword,
+                                    icon: const Icon(Icons.lock),
+                                    iconColor: Theme.of(context).primaryColor,
+                                  ),
+                                ),
+                              ),
+                              gapH32,
+                              gapH16,
+                               SizedBox(width: 300,
+                                 child: ElevatedButton(
+                                        style: const ButtonStyle(
+                                          elevation:
+                                              MaterialStatePropertyAll<double>(8.0),
+                                        ),
+                                        onPressed: () {
+                                          _signIn();
+                                        },
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(16.0),
+                                          child: Text(stringsHelper!.sendSignIn),
+                                        )),
+                               ),
+                              gapH32,
+                            ],
+                          ),
+                        ))
+                ],
+              ),
             ),
           ),
         ),

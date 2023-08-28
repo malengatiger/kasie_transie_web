@@ -31,10 +31,13 @@ AssociationBag _$AssociationBagFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$AssociationBagToJson(AssociationBag instance) =>
     <String, dynamic>{
-      'passengerCounts': instance.passengerCounts,
-      'heartbeats': instance.heartbeats,
-      'arrivals': instance.arrivals,
-      'departures': instance.departures,
-      'dispatchRecords': instance.dispatchRecords,
-      'commuterRequests': instance.commuterRequests,
+      'passengerCounts':
+          instance.passengerCounts.map((e) => e.toJson()).toList(),
+      'heartbeats': instance.heartbeats.map((e) => e.toJson()).toList(),
+      'arrivals': instance.arrivals.map((e) => e.toJson()).toList(),
+      'departures': instance.departures.map((e) => e.toJson()).toList(),
+      'dispatchRecords':
+          instance.dispatchRecords.map((e) => e.toJson()).toList(),
+      'commuterRequests':
+          instance.commuterRequests.map((e) => e.toJson()).toList(),
     };

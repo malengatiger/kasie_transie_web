@@ -41,7 +41,7 @@ Map<String, dynamic> _$CommuterRequestToJson(CommuterRequest instance) =>
       'associationId': instance.associationId,
       'dateNeeded': instance.dateNeeded,
       'scanned': instance.scanned,
-      'currentPosition': instance.currentPosition,
+      'currentPosition': instance.currentPosition?.toJson(),
       'routePointIndex': instance.routePointIndex,
       'numberOfPassengers': instance.numberOfPassengers,
       'distanceToRouteLandmarkInMetres':

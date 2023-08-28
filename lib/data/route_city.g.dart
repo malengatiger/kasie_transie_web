@@ -25,5 +25,5 @@ Map<String, dynamic> _$RouteCityToJson(RouteCity instance) => <String, dynamic>{
       'cityName': instance.cityName,
       'created': instance.created,
       'associationId': instance.associationId,
-      'position': instance.position,
+      'position': instance.position?.toJson(),
     };

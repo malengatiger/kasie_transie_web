@@ -48,5 +48,5 @@ Map<String, dynamic> _$RouteToJson(Route instance) => <String, dynamic>{
       'userId': instance.userId,
       'userName': instance.userName,
       'userUrl': instance.userUrl,
-      'routeStartEnd': instance.routeStartEnd,
+      'routeStartEnd': instance.routeStartEnd?.toJson(),
     };

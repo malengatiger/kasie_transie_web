@@ -14,5 +14,5 @@ RouteBagList _$RouteBagListFromJson(Map<String, dynamic> json) => RouteBagList(
 
 Map<String, dynamic> _$RouteBagListToJson(RouteBagList instance) =>
     <String, dynamic>{
-      'routeBags': instance.routeBags,
+      'routeBags': instance.routeBags.map((e) => e.toJson()).toList(),
     };

@@ -3,7 +3,7 @@ import 'package:json_annotation/json_annotation.dart';
 
 part 'route_point.g.dart';
 
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class RoutePoint {
   String? routePointId;
   String? associationId;

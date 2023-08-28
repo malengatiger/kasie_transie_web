@@ -3,8 +3,7 @@ import 'package:json_annotation/json_annotation.dart';
 
 part 'city.g.dart';
 
-@JsonSerializable()
-
+@JsonSerializable(explicitToJson: true)
 class City {
   String? cityId;
   String? countryId;

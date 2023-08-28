@@ -2,7 +2,7 @@ import 'package:json_annotation/json_annotation.dart';
 
 part 'route_update_request.g.dart';
 
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 
 class RouteUpdateRequest {
   String? routeId;

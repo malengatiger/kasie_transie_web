@@ -33,5 +33,5 @@ Map<String, dynamic> _$RouteLandmarkToJson(RouteLandmark instance) =>
       'routePointId': instance.routePointId,
       'routePointIndex': instance.routePointIndex,
       'index': instance.index,
-      'position': instance.position,
+      'position': instance.position?.toJson(),
     };

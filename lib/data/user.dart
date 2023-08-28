@@ -2,7 +2,7 @@ import 'package:json_annotation/json_annotation.dart';
 
 part 'user.g.dart';
 
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class User {
   String? userId;
   String? firstName, lastName, gender;
@@ -31,6 +31,8 @@ class User {
       required this.imageUrl});
 
   factory User.fromJson(Map<String, dynamic> json) => _$UserFromJson(json);
+
+  String get name => '$firstName $lastName';
   Map<String, dynamic> toJson() => _$UserToJson(this);
   String getName() {
     return '$firstName $lastName';

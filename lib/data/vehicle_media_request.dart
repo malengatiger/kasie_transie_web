@@ -2,8 +2,7 @@ import 'package:json_annotation/json_annotation.dart';
 
 part 'vehicle_media_request.g.dart';
 
-@JsonSerializable()
-
+@JsonSerializable(explicitToJson: true)
 class VehicleMediaRequest {
   String? userId;
   String? vehicleId;

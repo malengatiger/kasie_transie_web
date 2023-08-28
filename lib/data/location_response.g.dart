@@ -29,5 +29,5 @@ Map<String, dynamic> _$LocationResponseToJson(LocationResponse instance) =>
       'userName': instance.userName,
       'created': instance.created,
       'associationId': instance.associationId,
-      'position': instance.position,
+      'position': instance.position?.toJson(),
     };
