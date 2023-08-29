@@ -37,7 +37,7 @@ class _DemoDriverState extends State<DemoDriver>
       busy = true;
     });
     try {
-      cars = await networkHandler.getAssociationVehicles(widget.associationId);
+      cars = await networkHandler.getAssociationVehicles(associationId: widget.associationId);
     } catch (e) {
       print(e);
     }

@@ -27,6 +27,9 @@ class CountsGridWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    final height = MediaQuery.of(context).size.height;
+
     return GridView(
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 8, crossAxisSpacing: 2, mainAxisSpacing: 2),

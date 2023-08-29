@@ -782,7 +782,7 @@ class AssociationRouteOperationsState extends State<AssociationRouteOperations> 
           ),
           Positioned(
               child: LiveDisplay(
-            width: 600,
+                  width: 800, height: 100,
             cutoffDate:
                 DateTime.now().toUtc().subtract(Duration(minutes: minutes)),
           )),

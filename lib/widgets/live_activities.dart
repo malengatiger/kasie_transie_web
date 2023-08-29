@@ -20,9 +20,9 @@ import '../utils/emojis.dart';
 import '../utils/functions.dart';
 
 class LiveDisplay extends StatefulWidget {
-  const LiveDisplay({super.key, required this.width, required this.cutoffDate});
+  const LiveDisplay({super.key, required this.width, required this.cutoffDate, required this.height});
 
-  final double? width;
+  final double width, height;
   final DateTime cutoffDate;
 
   @override
@@ -308,94 +308,87 @@ class _LiveDisplayState extends State<LiveDisplay> {
     super.dispose();
   }
 
+  List<ActivityWidget> widgets = [];
+  void _buildWidgets() {
+        if (stringsHelper == null) {
+          return;
+        }
+        widgets.add(ActivityWidget(
+            number: dispatches.length,
+            caption: stringsHelper!.dispatchesText,
+            numberStyle:
+            myTextStyleSmallWithColor(context, Colors.white),
+            captionStyle: myTextStyleMediumLargeWithColor(
+                context, Theme.of(context).primaryColor, 12),
+            color: Colors.deepOrange),);
+        widgets.add(ActivityWidget(
+            number: arrivals.length,
+            caption: stringsHelper!.arrivalsText,
+            numberStyle:
+            myTextStyleSmallWithColor(context, Colors.white),
+            captionStyle: myTextStyleMediumLargeWithColor(
+                context, Theme.of(context).primaryColor, 12),
+            color: Colors.teal.shade700),);
+        widgets.add(ActivityWidget(
+            number: totalPassengers,
+            caption: stringsHelper!.passengers,
+            numberStyle:
+            myTextStyleSmallWithColor(context, Colors.white),
+            captionStyle: myTextStyleMediumLargeWithColor(
+                context, Theme.of(context).primaryColor, 12),
+            color: Colors.blue),);
+        widgets.add(ActivityWidget(
+            number: departures.length,
+            caption: stringsHelper!.departuresText,
+            numberStyle:
+            myTextStyleSmallWithColor(context, Colors.white),
+            captionStyle: myTextStyleMediumLargeWithColor(
+                context, Theme.of(context).primaryColor, 12),
+            color: Colors.brown),);
+        widgets.add(ActivityWidget(
+          number: heartbeats.length,
+          caption: stringsHelper!.heartbeats,
+          numberStyle:
+          myTextStyleSmallWithColor(context, Colors.white),
+          color: Colors.indigo.shade700,
+          captionStyle: myTextStyleMediumLargeWithColor(
+              context, Theme.of(context).primaryColor, 12),
+        ),);
+        widgets.add(ActivityWidget(
+          number: commuterRequests.length,
+          caption: stringsHelper!.commutersText,
+          numberStyle:
+          myTextStyleSmallWithColor(context, Colors.white),
+          color: Colors.red.shade700,
+          captionStyle: myTextStyleMediumLargeWithColor(
+              context, Theme.of(context).primaryColor, 12),
+        ),);
+  }
+
   @override
   Widget build(BuildContext context) {
     final date = getFormattedDateHour(DateTime.now().toIso8601String());
     pp('$mm ... ${dispatches.length} ... dispatches, if zero,  FUCK!');
-    final width = MediaQuery.of(context).size.width;
+    _buildWidgets();
     return SizedBox(
-      height: 140,
-      width: (width / 2),
+      height: widget.height,
+      width: widget.width,
       child: Center(
         child: stringsHelper == null
             ? gapW32
             : Card(
                 shape: getDefaultRoundedBorder(),
                 elevation: 4,
-                color: Colors.black54,
+                // color: Colors.black54,
                 child: Padding(
                   padding: const EdgeInsets.all(8.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SizedBox(
-                        height: 64,
-                        child: Column(
-                          children: [
-                            Text(
-                              date,
-                              style: myTextStyleLarge(context),
-                            ),
-                            Text(
-                              stringsHelper!.timeLastUpdate,
-                              style: myTextStyleTiny(context),
-                            ),
-                          ],
-                        ),
-                      ),
-                      gapW16,
-                      ActivityWidget(
-                          number: dispatches.length,
-                          caption: stringsHelper!.dispatchesText,
-                          numberStyle:
-                              myTextStyleSmallWithColor(context, Colors.white),
-                          captionStyle: myTextStyleMediumLargeWithColor(
-                              context, Theme.of(context).primaryColor, 12),
-                          color: Colors.deepOrange),
-                      ActivityWidget(
-                          number: arrivals.length,
-                          caption: stringsHelper!.arrivalsText,
-                          numberStyle:
-                              myTextStyleSmallWithColor(context, Colors.white),
-                          captionStyle: myTextStyleMediumLargeWithColor(
-                              context, Theme.of(context).primaryColor, 12),
-                          color: Colors.teal.shade700),
-                      ActivityWidget(
-                          number: totalPassengers,
-                          caption: stringsHelper!.passengers,
-                          numberStyle:
-                              myTextStyleSmallWithColor(context, Colors.white),
-                          captionStyle: myTextStyleMediumLargeWithColor(
-                              context, Theme.of(context).primaryColor, 12),
-                          color: Colors.blue),
-                      ActivityWidget(
-                          number: departures.length,
-                          caption: stringsHelper!.departuresText,
-                          numberStyle:
-                              myTextStyleSmallWithColor(context, Colors.white),
-                          captionStyle: myTextStyleMediumLargeWithColor(
-                              context, Theme.of(context).primaryColor, 12),
-                          color: Colors.brown),
-                      ActivityWidget(
-                        number: heartbeats.length,
-                        caption: stringsHelper!.heartbeats,
-                        numberStyle:
-                            myTextStyleSmallWithColor(context, Colors.white),
-                        color: Colors.indigo.shade700,
-                        captionStyle: myTextStyleMediumLargeWithColor(
-                            context, Theme.of(context).primaryColor, 12),
-                      ),
-                      ActivityWidget(
-                        number: commuterRequests.length,
-                        caption: stringsHelper!.commutersText,
-                        numberStyle:
-                            myTextStyleSmallWithColor(context, Colors.white),
-                        color: Colors.red.shade700,
-                        captionStyle: myTextStyleMediumLargeWithColor(
-                            context, Theme.of(context).primaryColor, 12),
-                      ),
-                    ],
-                  ),
+                  child: GridView.builder(gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 6),
+                      itemCount: widgets.length,
+                      itemBuilder: (ctx,index){
+                        final w = widgets.elementAt(index);
+                        return w;
+                  }),
                 ),
               ),
       ),
@@ -412,14 +405,14 @@ class ActivityWidget extends StatelessWidget {
       this.captionStyle,
       this.numberStyle,
       required this.color,
-      this.elevation});
+      this.elevation, this.width});
 
   final int number;
   final String caption;
   final double? padding;
   final TextStyle? captionStyle, numberStyle;
   final Color color;
-  final double? elevation;
+  final double? elevation, width;
 
   @override
   Widget build(BuildContext context) {
@@ -429,7 +422,7 @@ class ActivityWidget extends StatelessWidget {
       elevation: elevation == null ? 12 : elevation!,
       child: Center(
         child: SizedBox(
-          width: 88,
+          width: width == null?100:width!,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,

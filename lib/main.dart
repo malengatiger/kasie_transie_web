@@ -30,7 +30,7 @@ Future<void> main() async {
       ' Firebase App has been initialized: ${firebaseApp.name}, checking for authed current user\n');
   fbAuthedUser = fb.FirebaseAuth.instance.currentUser;
 
-  // storageManager.initialize();
+  await storageManager.initialize();
   user = await prefs.getUser();
   if (user != null) {
     // fcmBloc.subscribeForOwnerMarshalOfficialAmbassador('KasieWeb');

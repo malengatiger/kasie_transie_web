@@ -92,7 +92,7 @@ class DispatchAndCommuterRequestClusterMapState extends State<DispatchAndCommute
     });
     try {
       var ass = await prefs.getUser();
-      bag = await networkHandler.getAssociationBag(ass!.associationId!, widget.date);
+      bag = await networkHandler.getAssociationBag(ass!.associationId!, widget.date, true);
       _buildCovers();
     } catch (e) {
       pp(e);

@@ -11,7 +11,6 @@ import 'package:kasie_transie_web/data/generation_request.dart';
 import 'package:kasie_transie_web/data/user.dart';
 import 'package:kasie_transie_web/data/vehicle.dart';
 import 'package:kasie_transie_web/data/vehicle_heartbeat.dart';
-import 'package:kasie_transie_web/data/vehicle_heartbeat_aggregation_result.dart';
 import 'package:kasie_transie_web/utils/emojis.dart';
 import 'package:kasie_transie_web/utils/functions.dart';
 
@@ -106,7 +105,7 @@ class NetworkHandler {
     }
   }
 
-  Future<Uint8List> _httpGetZippedRoutes(String mUrl, String token) async {
+  Future<Uint8List> _httpGetZippedData(String mUrl, String token) async {
     Map<String, String> headers = {
       'Content-type': 'application/json',
       'Accept-Encoding': 'gzip, deflate',
@@ -148,16 +147,15 @@ class NetworkHandler {
   Stream<AssociationBag> get associationBagStream =>
       _bagStreamController.stream;
 
-
   void startTimer(
       {required String associationId,
       required String startDate,
       required int intervalSeconds}) async {
     pp('\n\n$xyz startTimer for getting association bag ....');
-    _handleBag(associationId, startDate);
+    _handleBag(associationId, startDate, true);
     timer = Timer.periodic(Duration(seconds: intervalSeconds), (timer) async {
       pp('\n\n$xyz ................. timer tick ${E.heartBlue} #${timer.tick} at ${DateTime.now().toIso8601String()}');
-      await _handleBag(associationId, startDate);
+      await _handleBag(associationId, startDate, true);
     });
   }
 
@@ -182,13 +180,12 @@ class NetworkHandler {
         '&userId=$userId&token=$fcmToken';
     final res = await httpGet(url, authToken);
     pp('$xyz AssociationToken added: $res ${E.heartRed}');
-
   }
 
-  Future<void> _handleBag(String associationId, String startDate) async {
+  Future<void> _handleBag(String associationId, String startDate, bool refresh) async {
     pp('$xyz _handleBag ... ${E.heartRed}');
 
-    final bag = await getAssociationBag(associationId, startDate);
+    final bag = await getAssociationBag(associationId, startDate, refresh);
     if (bag != null) {
       pp('$xyz put bag to _bagStreamController ... ${E.heartRed}');
       _bagStreamController.sink.add(bag);
@@ -204,7 +201,6 @@ class NetworkHandler {
     }
     final list = map.values.toList();
     pp('$xyz distinct vehicle last heartbeats: ${list.length} ... ${E.heartRed}');
-
   }
 
   void stopTimer() {
@@ -212,10 +208,43 @@ class NetworkHandler {
     timer.cancel();
   }
 
+  int count = 0;
   Future<AssociationBag?> getAssociationBag(
-      String associationId, String startDate) async {
+      String associationId, String startDate, bool refresh) async {
     pp('$xyz ... getAssociationBag ...  ${E.heartRed}');
 
+    //todo - build associationBag from cache
+    if (refresh) {
+      return await _getBag(associationId, startDate);
+    } else {
+      final arrivals = await storageManager.getArrivals(startDate);
+      final departures = await storageManager.getDepartures(startDate);
+      final heartbeats = await storageManager.getHeartbeats(startDate);
+      final requests = await storageManager.getCommuterRequests(startDate);
+      final passengers = await storageManager.getPassengerCounts(startDate);
+      final dispatches = await storageManager.getDispatches(startDate);
+
+      final bag = AssociationBag(
+        arrivals: arrivals,
+        departures: departures,
+        heartbeats: heartbeats,
+        commuterRequests: requests,
+        passengerCounts: passengers,
+        dispatchRecords: dispatches,
+      );
+      pp('$xyz ... getAssociationBag return bag from cache ...  ${E.heartRed}');
+      if (bag.isEmpty()) {
+        if (count == 0) {
+          count++;
+          getAssociationBag(associationId, startDate, true);
+        }
+      } else {
+        _printBag(bag);
+        return bag;
+      }
+    }
+
+    final start = DateTime.now();
     final token = await getAuthToken();
     if (token == null) {
       pp('$xyz token is null, quit! ${E.redDot}${E.redDot}${E.redDot}');
@@ -224,22 +253,88 @@ class NetworkHandler {
       pp('$xyz token is just fine! ${E.heartRed}');
     }
     final url =
-        '${KasieEnvironment.getUrl()}getAssociationBag?associationId=$associationId&startDate=$startDate';
-    final res = await httpGet(url, token);
-    final bag = AssociationBag.fromJson(res);
+        '${KasieEnvironment.getUrl()}getAssociationBagZipped?associationId=$associationId&startDate=$startDate';
+    final bodyBytes = await _httpGetZippedData(url, token);
+    pp('$xyz getAssociationBag: 🔆🔆🔆 get zipped data, bodyBytes: ${bodyBytes.length} bytes ...');
 
-    pp('$xyz AssociationBag returned from server; ${E.blueDot} will cache data in sembast');
-    try {
-      await storageManager.initialize();
-      await storageManager.addArrivals(bag.arrivals);
-      await storageManager.addDispatches(bag.dispatchRecords);
-      await storageManager.addHeartbeats(bag.heartbeats);
-      await storageManager.addDepartures(bag.departures);
-      await storageManager.addPassengerCounts(bag.passengerCounts);
-    } catch (e) {
-      pp('$xyz ... fell down again, Michelle? ${E.redDot} $e');
+    final Archive archive = ZipDecoder().decodeBytes(bodyBytes);
+    pp('$xyz ... do we have a file? ${archive.files.length} files in archive');
+    pp('$xyz getAssociationBag: 🔆🔆🔆 handle file inside zip: ${archive.length} bytes');
+
+    for (var file in archive.files) {
+      if (file.isFile) {
+        pp('$xyz getAssociationBag: file from inside archive ... ${file.size} '
+            'bytes 🔵 isCompressed: ${file.isCompressed} 🔵 zipped file name: ${file.name}');
+        final content = file.content;
+        final x = utf8.decode(content);
+        final mJson = jsonDecode(x);
+        final bag = AssociationBag.fromJson(mJson);
+        var end = DateTime.now();
+        var ms = end.difference(start).inSeconds;
+
+        pp('$xyz getAssociationBag 🍎🍎🍎🍎 work is done!, elapsed seconds: 🍎$ms 🍎bag done: \n\n');
+        pp('$xyz AssociationBag returned from server; ${E.blueDot} will cache data in sembast ...');
+        await storageManager.addDepartures(bag.departures);
+        await storageManager.addArrivals(bag.arrivals);
+        await storageManager.addPassengerCounts(bag.passengerCounts);
+        await storageManager.addDispatches(bag.dispatchRecords);
+        await storageManager.addHeartbeats(bag.heartbeats);
+        await storageManager.addCommuterRequest(bag.commuterRequests);
+
+        _printBag(bag);
+      }
     }
+    return null;
+  }
 
+  Future<AssociationBag?> _getBag(
+    String associationId,
+    String startDate,
+  ) async {
+    final token = await getAuthToken();
+    if (token == null) {
+      pp('$xyz token is null, quit! ${E.redDot}${E.redDot}${E.redDot}');
+      return null;
+    } else {
+      pp('$xyz token is just fine! ${E.heartRed}');
+    }
+    var start = DateTime.now();
+    final url =
+        '${KasieEnvironment.getUrl()}getAssociationBagZipped?associationId=$associationId&startDate=$startDate';
+    final bodyBytes = await _httpGetZippedData(url, token);
+    pp('$xyz getAssociationBag: 🔆🔆🔆 get zipped data, bodyBytes: ${bodyBytes.length} bytes ...');
+
+    final Archive archive = ZipDecoder().decodeBytes(bodyBytes);
+    pp('$xyz ... do we have a file? ${archive.files.length} files in archive');
+    pp('$xyz getAssociationBag: 🔆🔆🔆 handle file inside zip: ${archive.length} bytes');
+
+    for (var file in archive.files) {
+      if (file.isFile) {
+        pp('$xyz getAssociationBag: file from inside archive ... ${file.size} '
+            'bytes 🔵 isCompressed: ${file.isCompressed} 🔵 zipped file name: ${file.name}');
+        final content = file.content;
+        final x = utf8.decode(content);
+        final mJson = jsonDecode(x);
+        final bag = AssociationBag.fromJson(mJson);
+        var end = DateTime.now();
+        var ms = end.difference(start).inSeconds;
+
+        pp('$xyz getAssociationBag 🍎🍎🍎🍎 work is done!, elapsed seconds: 🍎$ms 🍎bag done: \n\n');
+        pp('$xyz AssociationBag returned from server; ${E.blueDot} will cache data in sembast');
+        await storageManager.addDepartures(bag.departures);
+        await storageManager.addArrivals(bag.arrivals);
+        await storageManager.addPassengerCounts(bag.passengerCounts);
+        await storageManager.addDispatches(bag.dispatchRecords);
+        await storageManager.addHeartbeats(bag.heartbeats);
+        await storageManager.addCommuterRequest(bag.commuterRequests);
+        _printBag(bag);
+        return bag;
+      }
+    }
+    return null;
+  }
+
+  void _printBag(AssociationBag bag) {
     pp('$xyz .... AssociationBag contains: '
         '\n ${E.appleGreen} arrivals: ${bag.arrivals.length}'
         '\n ${E.appleGreen} departures: ${bag.departures.length}'
@@ -247,14 +342,13 @@ class NetworkHandler {
         '\n ${E.appleGreen} passengerCounts: ${bag.passengerCounts.length}'
         '\n ${E.appleGreen} heartbeats: ${bag.heartbeats.length}'
         '\n ${E.appleGreen} dispatchRecords: ${bag.dispatchRecords.length}');
-
-
-    return bag;
   }
 
-  Future<List<AssociationHeartbeatAggregationResult>> getAssociationHeartbeatTimeSeries(
-      String associationId, String startDate) async {
+  Future<List<AssociationHeartbeatAggregationResult>>
+      getAssociationHeartbeatTimeSeries(
+          String associationId, String startDate) async {
     pp('$xyz ... getAssociationHeartbeatTimeSeries ...  ${E.heartRed}');
+    var start = DateTime.now();
 
     List<AssociationHeartbeatAggregationResult> list = [];
     final token = await getAuthToken();
@@ -266,12 +360,32 @@ class NetworkHandler {
     }
     final url =
         '${KasieEnvironment.getUrl()}getAssociationHeartbeatTimeSeries?associationId=$associationId&startDate=$startDate';
-    List res = await httpGet(url, token);
-    for (var value in res) {
-      final result = AssociationHeartbeatAggregationResult.fromJson(value);
-      list.add(result);
+    final bodyBytes = await _httpGetZippedData(url, token);
+    pp('$xyz getAssociationHeartbeatTimeSeries: 🔆🔆🔆 get zipped data, bodyBytes: ${bodyBytes.length} bytes ...');
+
+    final Archive archive = ZipDecoder().decodeBytes(bodyBytes);
+    pp('$xyz ... do we have a file? ${archive.files.length} files in archive');
+    pp('$xyz getAssociationHeartbeatTimeSeries: 🔆🔆🔆 handle file inside zip: ${archive.length} bytes');
+
+    for (var file in archive.files) {
+      if (file.isFile) {
+        pp('$xyz getAssociationHeartbeatTimeSeries: file from inside archive ... ${file.size} '
+            'bytes 🔵 isCompressed: ${file.isCompressed} 🔵 zipped file name: ${file.name}');
+        final content = file.content;
+        final x = utf8.decode(content);
+        List mJson = jsonDecode(x);
+        for (var value in mJson) {
+          list.add(AssociationHeartbeatAggregationResult.fromJson(value));
+        }
+        var end = DateTime.now();
+        var ms = end.difference(start).inSeconds;
+        pp('$xyz getAssociationHeartbeatTimeSeries 🍎🍎🍎🍎 work is done!, elapsed seconds: '
+            '🍎$ms 🍎time series done, found: ${list.length} \n\n');
+        storageManager.addHeartbeatTimeSeries(list);
+      }
     }
-    pp('$xyz ... AssociationHeartbeatAggregationResults found: ${list.length}');
+
+    pp('$xyz ...  found: ${list.length}');
     return list;
   }
 
@@ -290,7 +404,8 @@ class NetworkHandler {
       pp('$xyz token is null, quit! ${E.redDot}${E.redDot}${E.redDot}');
       return [];
     }
-    final cmd = '${KasieEnvironment.getUrl()}generateRouteCommuterRequests?routeId=$routeId';
+    final cmd =
+        '${KasieEnvironment.getUrl()}generateRouteCommuterRequests?routeId=$routeId';
     final res = await httpGet(cmd, token);
     pp('$xyz CommuterRequests: $res ${E.leaf}${E.leaf}');
     return res;
@@ -304,41 +419,39 @@ class NetworkHandler {
     }
 
     final cmd = '${KasieEnvironment.getUrl()}generateRouteDispatchRecords';
-    final res = await httpPost(cmd, request.toJson(),token);
+    final res = await httpPost(cmd, request.toJson(), token);
 
-    pp('\n\n$xyz generateRouteDispatchRecords: Demo Vehicles: ${request
-        .vehicleIds.length}  $res ${E.leaf}${E.leaf}');
+    pp('\n\n$xyz generateRouteDispatchRecords: Demo Vehicles: ${request.vehicleIds.length}  $res ${E.leaf}${E.leaf}');
 
     return res;
-
   }
 
-  Future<List<Vehicle>> getAssociationVehicles(String associationId) async {
-    List<Vehicle> cars = [];
-    final token = await getAuthToken();
-    if (token == null) {
-      pp('$xyz token is null, quit! ${E.redDot}${E.redDot}${E.redDot}');
-      return [];
-    }
-
-    int pageNumber = 0;
-    bool stop = false;
-    while(!stop) {
-      final mUrl = '${KasieEnvironment.getUrl()}'
-          'getAssociationVehicles?associationId=$associationId&page=$pageNumber';
-      List list = await httpGet(mUrl, token);
-      for (var value in list) {
-        cars.add(Vehicle.fromJson(value));
-      }
-      pageNumber++;
-      if (list.isEmpty) {
-        stop = true;
-      }
-    }
-
-    pp('$xyz getAssociationVehicles: 🔆🔆🔆 ${cars.length} cars found ...');
-    return cars;
-  }
+  // Future<List<Vehicle>> getAssociationVehicles(String associationId) async {
+  //   List<Vehicle> cars = [];
+  //   final token = await getAuthToken();
+  //   if (token == null) {
+  //     pp('$xyz token is null, quit! ${E.redDot}${E.redDot}${E.redDot}');
+  //     return [];
+  //   }
+  //
+  //   int pageNumber = 0;
+  //   bool stop = false;
+  //   while(!stop) {
+  //     final mUrl = '${KasieEnvironment.getUrl()}'
+  //         'getAssociationVehicles?associationId=$associationId&page=$pageNumber';
+  //     List list = await httpGet(mUrl, token);
+  //     for (var value in list) {
+  //       cars.add(Vehicle.fromJson(value));
+  //     }
+  //     pageNumber++;
+  //     if (list.isEmpty) {
+  //       stop = true;
+  //     }
+  //   }
+  //
+  //   pp('$xyz getAssociationVehicles: 🔆🔆🔆 ${cars.length} cars found ...');
+  //   return cars;
+  // }
   //
   Future<List<RouteBag>> getRouteBags({required String associationId}) async {
     pp('$xyz _getRouteBag: 🔆🔆🔆 get zipped data ...');
@@ -353,7 +466,7 @@ class NetworkHandler {
     final mUrl = '${KasieEnvironment.getUrl()}'
         'getAssociationRouteZippedFile?associationId=$associationId';
 
-    final bodyBytes = await _httpGetZippedRoutes(mUrl, token!);
+    final bodyBytes = await _httpGetZippedData(mUrl, token);
     pp('$xyz _getRouteBag: 🔆🔆🔆 get zipped data, bodyBytes: ${bodyBytes.length} bytes ...');
 
     final Archive archive = ZipDecoder().decodeBytes(bodyBytes);
@@ -371,9 +484,52 @@ class NetworkHandler {
         var end = DateTime.now();
         var ms = end.difference(start).inSeconds;
         pp('$xyz _getRouteBag 🍎🍎🍎🍎 work is done!, elapsed seconds: 🍎$ms 🍎bags done: ${bags.length}\n\n');
-
-        await storageManager.addRoutes(bagList.routeBags);
+        storageManager.addRoutes(bagList.routeBags);
         return bagList.routeBags;
+      }
+    }
+    throw Exception('Something went wrong');
+  }
+
+//
+  Future<List<Vehicle>> getAssociationVehicles(
+      {required String associationId}) async {
+    pp('$xyz getAssociationVehicles: 🔆🔆🔆 get zipped data ...');
+
+    var start = DateTime.now();
+    List<Vehicle> bags = [];
+    final token = await getAuthToken();
+    if (token == null) {
+      pp('$xyz token is null, quit! ${E.redDot}${E.redDot}${E.redDot}');
+      return [];
+    }
+    final mUrl = '${KasieEnvironment.getUrl()}'
+        'getVehiclesZippedFile?associationId=$associationId';
+
+    final bodyBytes = await _httpGetZippedData(mUrl, token);
+    pp('$xyz getAssociationVehicles: 🔆🔆🔆 get zipped data, bodyBytes: ${bodyBytes.length} bytes ...');
+
+    final Archive archive = ZipDecoder().decodeBytes(bodyBytes);
+    pp('$xyz ... do we have a file? ${archive.files.length} files in archive');
+    pp('$xyz getAssociationVehicles: 🔆🔆🔆 handle file inside zip: ${archive.length} bytes');
+
+    for (var file in archive.files) {
+      if (file.isFile) {
+        pp('$xyz getAssociationVehicles: file from inside archive ... ${file.size} '
+            'bytes 🔵 isCompressed: ${file.isCompressed} 🔵 zipped file name: ${file.name}');
+        final content = file.content;
+        final x = utf8.decode(content);
+        List mJson = jsonDecode(x);
+        for (var value in mJson) {
+          bags.add(Vehicle.fromJson(value));
+        }
+        var end = DateTime.now();
+        var ms = end.difference(start).inSeconds;
+        pp('$xyz getAssociationVehicles 🍎🍎🍎🍎 work is done!, elapsed seconds: '
+            '🍎$ms 🍎vehicles done: ${bags.length}\n\n');
+
+        storageManager.addVehicles(bags);
+        return bags;
       }
     }
     throw Exception('Something went wrong');

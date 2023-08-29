@@ -10,10 +10,13 @@ import 'package:kasie_transie_web/utils/emojis.dart';
 import 'package:kasie_transie_web/utils/functions.dart';
 import 'package:kasie_transie_web/utils/navigator_utils.dart';
 import 'package:kasie_transie_web/utils/prefs.dart';
+import 'package:kasie_transie_web/widgets/association_bag_widget.dart';
+import 'package:kasie_transie_web/widgets/charts/line_chart.dart';
 import 'package:kasie_transie_web/widgets/counts_widget.dart';
 import 'package:kasie_transie_web/widgets/dashboard_widgets/side_board.dart';
 import 'package:kasie_transie_web/widgets/days_drop_down.dart';
 import 'package:kasie_transie_web/widgets/demo_driver.dart';
+import 'package:kasie_transie_web/widgets/live_activities.dart';
 import 'package:kasie_transie_web/widgets/timer_widget.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -238,14 +241,14 @@ class _AssociationDashboardState extends State<AssociationDashboard> {
 
   int totalPassengers = 0;
 
-  List<AssociationHeartbeatAggregationResult> results = [];
+  // List<AssociationHeartbeatAggregationResult> results = [];
   Future _refreshBag() async {
     final date = DateTime.now().toUtc().subtract(Duration(days: days));
     setState(() {
       busy = true;
     });
     try {
-     _handleData();
+      _handleData(true);
     } catch (e) {
       pp(e);
       if (mounted) {
@@ -278,7 +281,7 @@ class _AssociationDashboardState extends State<AssociationDashboard> {
       if (user!.userId == null) {
         throw Exception('Fuck!! No User id! wtf?');
       }
-      await _handleData();
+      await _handleData(refresh);
     } catch (e) {
       pp(e);
       if (mounted) {
@@ -295,17 +298,15 @@ class _AssociationDashboardState extends State<AssociationDashboard> {
     });
   }
 
-  Future<void> _handleData() async {
+  Future<void> _handleData(bool refresh) async {
     final date = DateTime.now().toUtc().subtract(Duration(days: days));
     pp('$mm _handleData ............................ '
         'getting association data ...');
 
-    cars = await networkHandler.getAssociationVehicles(user!.associationId!);
-
+    cars = await networkHandler.getAssociationVehicles(
+        associationId: user!.associationId!);
     bigBag = await networkHandler.getAssociationBag(
-        user!.associationId!, date.toIso8601String());
-    results = await networkHandler.getAssociationHeartbeatTimeSeries(
-        user!.associationId!, date.toIso8601String());
+        user!.associationId!, date.toIso8601String(), refresh);
 
     pp('$mm _handleData .. association bag: ${E.appleRed} '
         '\n🔴 cars: ${cars.length} '
@@ -314,13 +315,6 @@ class _AssociationDashboardState extends State<AssociationDashboard> {
         '\n🔴 dispatchRecords: ${bigBag?.dispatchRecords.length} '
         '\n🔴 passengerCounts: ${bigBag?.passengerCounts.length} '
         '\n🔴 vehicleDepartures: ${bigBag?.departures.length}');
-
-    pp('$mm _handleData: ${E.appleRed} heartbeat aggregates: ${results.length}');
-    results.sort((a, b) => a.key.compareTo(b.key));
-    if (results.isNotEmpty) {
-      pp('$mm _handleData ... last aggregate: ........... : ${E.redDot}');
-      myPrettyJsonPrint(results.last.toJson());
-    }
 
     _calculateTotalPassengers();
   }
@@ -356,191 +350,166 @@ class _AssociationDashboardState extends State<AssociationDashboard> {
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    final sideWidth = width / 4;
-    final rightWidth = width - sideWidth;
+    final height = MediaQuery.of(context).size.height;
+    pp('$mm ................... width: $width height: $height');
+    final width1 = 300.0;
+    final width2 = 800.0;
+    final width3 = 400.0;
+
+    final cutoffDate = DateTime.now().toUtc().subtract(Duration(days: days));
 
     return SafeArea(
-        child: Scaffold(
-      appBar: AppBar(
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              'Association Dashboard',
-              style: myTextStyleMediumLarge(context, 18),
+      child: Scaffold(
+          appBar: AppBar(
+            title: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'Association Dashboard',
+                  style: myTextStyleMediumLarge(context, 18),
+                ),
+                gapW32,
+                gapW32,
+                Text(
+                  'History for all data',
+                  style: myTextStyleSmall(context),
+                ),
+                gapW16,
+                Text(
+                  '$days',
+                  style: myTextStyleMediumLargeWithColor(
+                      context, Theme.of(context).primaryColor, 20),
+                ),
+                gapW32,
+                DaysDropDown(
+                    onDaysPicked: (d) {
+                      setState(() {
+                        days = d;
+                      });
+                      _refreshBag();
+                    },
+                    hint: daysText == null ? 'Days' : daysText!),
+              ],
             ),
-            gapW32,
-            gapW32,
-            Text(
-              'History for all data',
-              style: myTextStyleSmall(context),
-            ),
-            gapW16,
-            Text(
-              '$days',
-              style: myTextStyleMediumLargeWithColor(
-                  context, Theme.of(context).primaryColor, 20),
-            ),
-            gapW32,
-            DaysDropDown(
-                onDaysPicked: (d) {
-                  setState(() {
-                    days = d;
-                  });
-                  _refreshBag();
-                },
-                hint: daysText == null ? 'Days' : daysText!),
-          ],
-        ),
-        actions: [
-          IconButton(
-              onPressed: () {
-                _navigateToColor();
-              },
-              icon: Icon(
-                Icons.color_lens,
-                color: Theme.of(context).primaryColor,
-              )),
-          IconButton(
-              onPressed: () {
-                _navigateToMaps();
-              },
-              icon: Icon(
-                Icons.map,
-                color: Theme.of(context).primaryColor,
-              )),
-          IconButton(
-              onPressed: () {
-                // _navigateToScanner();
-              },
-              icon: Icon(Icons.airport_shuttle,
-                  color: Theme.of(context).primaryColor)),
-          IconButton(
-              onPressed: () {
-                _navigateToRouteAssignments();
-              },
-              icon:
-                  Icon(Icons.settings, color: Theme.of(context).primaryColor)),
-        ],
-      ),
-      body: Stack(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(4.0),
-            child: Card(
-              shape: getRoundedBorder(radius: 16),
-              elevation: 4,
-              child: Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: sideWidth,
-                      child: SideBoard(
-                          title: 'Menu',
-                          onUsers: () {
-                            setState(() {
-                              _showUsers = true;
-                            });
-                          },
-                          onCars: () {
-                            setState(() {
-                              _showCars = true;
-                            });
-                          },
-                          onLocateCar: () {
-                            setState(() {
-                              _showCarLocation = true;
-                            });
-                          },
-                          onSendMessage: () {
-                            setState(() {
-                              _showSendMessage = true;
-                            });
-                          },
-                          onDispatchReport: () {
-                            setState(() {
-                              _showDispatchReport = true;
-                            });
-                          },
-                          onPassengerReport: () {
-                            setState(() {
-                              _showPassengerReport = true;
-                            });
-                          },
-                          onSettings: () {
-                            setState(() {
-                              _showSettings = true;
-                            });
-                          }),
-                    ),
-                    SizedBox(
-                      width: rightWidth - 80,
-                      child: Column(
-                        children: [
-                          gapH16,
-                          user == null
-                              ? const Text('....')
-                              : Text(
-                                  user!.associationName!,
-                                  style: myTextStyleMediumLargeWithColor(
-                                      context,
-                                      Theme.of(context).primaryColor,
-                                      28),
-                                ),
-                          gapH16,
-                          gapH32,
-                          arrivalsText == null
-                              ? gapW16
-                              : Expanded(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(16.0),
-                                    child: CountsGridWidget(
-                                      passengerCounts: totalPassengers,
-                                      arrivalsText: arrivalsText!,
-                                      departuresText: departuresText!,
-                                      dispatchesText: dispatchesText!,
-                                      heartbeatText: heartbeatText!,
-                                      arrivals: bigBag == null
-                                          ? 0
-                                          : bigBag!.arrivals.length,
-                                      departures: bigBag == null
-                                          ? 0
-                                          : bigBag!.departures.length,
-                                      heartbeats: bigBag == null
-                                          ? 0
-                                          : bigBag!.heartbeats.length,
-                                      dispatches: bigBag == null
-                                          ? 0
-                                          : bigBag!.dispatchRecords.length,
-                                      passengerCountsText: passengerCounts!,
-                                    ),
-                                  ),
-                                )
-                        ],
+            actions: [
+              IconButton(
+                  onPressed: () {
+                    _navigateToColor();
+                  },
+                  icon: Icon(
+                    Icons.color_lens,
+                    color: Theme.of(context).primaryColor,
+                  )),
+              IconButton(
+                  onPressed: () {
+                    _navigateToMaps();
+                  },
+                  icon: Icon(
+                    Icons.map,
+                    color: Theme.of(context).primaryColor,
+                  )),
+              IconButton(
+                  onPressed: () {
+                    // _navigateToScanner();
+                  },
+                  icon: Icon(Icons.airport_shuttle,
+                      color: Theme.of(context).primaryColor)),
+              IconButton(
+                  onPressed: () {
+                    _navigateToRouteAssignments();
+                  },
+                  icon: Icon(Icons.settings,
+                      color: Theme.of(context).primaryColor)),
+            ],
+          ),
+          body: Row(
+            mainAxisAlignment: MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: width1,
+                child: SideBoard(
+                    title: 'Menu',
+                    onUsers: () {
+                      setState(() {
+                        _showUsers = true;
+                      });
+                    },
+                    onCars: () {
+                      setState(() {
+                        _showCars = true;
+                      });
+                    },
+                    onLocateCar: () {
+                      setState(() {
+                        _showCarLocation = true;
+                      });
+                    },
+                    onSendMessage: () {
+                      setState(() {
+                        _showSendMessage = true;
+                      });
+                    },
+                    onDispatchReport: () {
+                      setState(() {
+                        _showDispatchReport = true;
+                      });
+                    },
+                    onPassengerReport: () {
+                      setState(() {
+                        _showPassengerReport = true;
+                      });
+                    },
+                    onSettings: () {
+                      setState(() {
+                        _showSettings = true;
+                      });
+                    }),
+              ),
+              gapW32,
+              SizedBox(
+                width: width2,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Card(
+                        shape: getDefaultRoundedBorder(),
+                        elevation: 4,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: SizedBox(
+                              height: 540,
+                              child: const AssociationHeartbeatChart()),
+                        ),
                       ),
-                    ),
-                  ],
+                      gapH32,
+                      gapH32,
+                      LiveDisplay(
+                          width: 840, height: 160, cutoffDate: cutoffDate),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ),
-          busy
-              ? Positioned(
-                  left: 300,
-                  right: 300,
-                  bottom: 200,
-                  top: 200,
-                  child: TimerWidget(
-                    title: 'Loading Association data ...',
-                    subTitle: thisMayTakeMinutes == null
-                        ? 'This may take a few minutes, please wait!'
-                        : thisMayTakeMinutes!,
-                  ))
-              : const SizedBox(),
-        ],
-      ),
-    ));
+              bigBag == null
+                  ? gapH16
+                  : SizedBox(
+                      width: width3,
+                      child: AssociationBagWidget(
+                          bag: bigBag!,
+                          width: width,
+                          operationsSummary: 'Operations Summary',
+                          dispatches: dispatchesText!,
+                          passengers: passengerCounts!,
+                          arrivals: arrivalsText!,
+                          departures: departuresText!,
+                          heartbeats: heartbeatText!,
+                          lastUpdated: DateTime.now().toIso8601String(),
+                          date: DateTime.now().toIso8601String()),
+                    ),
+            ],
+          )),
+    );
   }
 }
 

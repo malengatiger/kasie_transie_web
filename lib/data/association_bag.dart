@@ -29,4 +29,26 @@ class AssociationBag {
   factory AssociationBag.fromJson(Map<String, dynamic> json) =>
       _$AssociationBagFromJson(json);
   Map<String, dynamic> toJson() => _$AssociationBagToJson(this);
+
+  bool isEmpty() {
+    if (passengerCounts.isNotEmpty) {
+      return false;
+    }
+    if (heartbeats.isNotEmpty) {
+      return false;
+    }
+    if (arrivals.isNotEmpty) {
+      return false;
+    }
+    if (departures.isNotEmpty) {
+      return false;
+    }
+    if (commuterRequests.isNotEmpty) {
+      return false;
+    }
+    if (dispatchRecords.isNotEmpty) {
+      return false;
+    }
+    return true;
+  }
 }
