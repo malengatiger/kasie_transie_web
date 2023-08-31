@@ -1,13 +1,11 @@
 import 'dart:async';
 import 'dart:collection';
-import 'dart:convert';
-import 'dart:html';
-import 'dart:js' as js;
 import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:kasie_transie_web/blocs/fcm_bloc.dart';
+import 'package:intl/intl.dart';
+import 'package:kasie_transie_web/blocs/stream_bloc.dart';
 import 'package:kasie_transie_web/data/ambassador_passenger_count.dart';
 import 'package:kasie_transie_web/data/commuter_request.dart';
 import 'package:kasie_transie_web/data/dispatch_record.dart';
@@ -15,7 +13,6 @@ import 'package:kasie_transie_web/data/location_request.dart';
 import 'package:kasie_transie_web/data/vehicle_arrival.dart';
 import 'package:kasie_transie_web/data/vehicle_departure.dart';
 import 'package:kasie_transie_web/data/vehicle_heartbeat.dart';
-import 'package:kasie_transie_web/email_auth_signin.dart';
 import 'package:kasie_transie_web/l10n/strings_helper.dart';
 import 'package:kasie_transie_web/maps/association_route_maps.dart';
 import 'package:kasie_transie_web/maps/cluster_maps/cluster_covers.dart';
@@ -44,25 +41,6 @@ import '../widgets/language_list.dart';
 import '../widgets/timer_widget.dart';
 import 'cluster_maps/dispatch_cluster_map.dart';
 
-class GetToken {
-  static Future<String> getToken() async {
-    String associationId =
-        '2f3faebd-6159-4b03-9857-9dad6d9a82ac'; // Replace with actual associationId
-    // Call the JavaScript function to send associationId and get token
-    pp('GetToken: calling Javascript: 🔴 🔴 🔴 🔴 ..... sending associationId: 💪 $associationId 💪');
-    final user = await prefs.getUser();
-    if (user != null) {
-      js.context.callMethod('fetchTokenAndSend', [associationId, user.userId]);
-    }
-
-    return "We good, Boss!";
-  }
-
-  static void _handleTokenFromJs(String token) {
-    // Handle the FCM token obtained from JavaScript
-    pp('GetToken:  🔵 🔵 🔵 🔵 FCM Token from JavaScript: $token');
-  }
-}
 
 class AssociationRouteOperations extends StatefulWidget {
   const AssociationRouteOperations({
@@ -171,66 +149,9 @@ class AssociationRouteOperationsState extends State<AssociationRouteOperations> 
         showSignIn = true;
       });
       return;
-    } else {
-      GetToken.getToken();
-      fcmBloc.initialize();
-      _setupMessagingListeners();
     }
     _listen();
     _startTimer();
-  }
-
-  Future _setupMessagingListeners() async {
-    pp('$mm ... _setting up FCM Messaging Listeners to get messages via Javascript ...');
-    // Set up the service worker to listen for FCM messages
-    if (window.navigator.serviceWorker != null) {
-      final sw = await window.navigator.serviceWorker!
-          .register('firebase-messaging-sw.js');
-      pp('$mm Service Worker registered with scope: ${sw.scope} - '
-          '${E.heartBlue} activated: ${sw.active?.state}');
-      // Listen for messages from the service worker
-      sw.addEventListener('message', (event) {
-        final dynamic message = jsonDecode(event as String);
-        pp('$mm Received message from service worker: ${E.leaf} $message ${E.leaf}');
-        // Handle the FCM message here
-      });
-      //
-
-      // Notify the service worker that the Dart app is ready
-      // window.navigator.serviceWorker!.ready.then((registration) {
-      //   registration.active!.postMessage('Dart app is ready');
-      // });
-      window.navigator.serviceWorker!.ready.then((registration) {
-        pp(' ... registration.active!.state: ${registration.active!.state}');
-        registration.active!.postMessage('register');
-      });
-
-      //listen for fcm messages
-      window.onMessage.listen((event) {
-        final dynamic message = event.data;
-        pp('$mm .......................................${E.redDot}'
-            ' message received, will be shipped to FCMBloc');
-        final m = message['mData']['data'];
-        fcmBloc.processFCMessage(convertDynamicMap(m));
-      });
-    } else {
-      pp('$mm ... _setupMessagingListeners NOT set up. ${E.redDot} ${E.redDot} ');
-      return;
-    }
-    pp('$mm Service Worker set up to receive messages ${E.leaf}${E.leaf}${E.leaf}');
-  }
-
-  Map<String, dynamic> convertDynamicMap(Map<dynamic, dynamic> dynamicMap) {
-    final convertedMap = <String, dynamic>{};
-    dynamicMap.forEach((key, value) {
-      if (key is String) {
-        convertedMap[key] = value;
-      } else {
-        // Handle key conversion if needed
-        convertedMap[key.toString()] = value;
-      }
-    });
-    return convertedMap;
   }
 
   List<VehicleHeartbeat> heartbeats = [];
@@ -246,45 +167,45 @@ class AssociationRouteOperationsState extends State<AssociationRouteOperations> 
       _showBag = true;
       final d = DateTime.now().toLocal().toIso8601String();
       final cl = await prefs.getColorAndLocale();
-      date = await getFmtDate(d, cl.locale, context);
+      date = DateFormat("MMM, dd MMMM HH:mm:ss").format(DateTime.now());
       if (mounted) {
         setState(() {});
       }
     });
 
-    heartbeatStreamSubscription = fcmBloc.heartbeatStreamStream.listen((event) {
+    heartbeatStreamSubscription = streamBloc.heartbeatStreamStream.listen((event) {
       pp('$mm heartbeatStreamStream delivered event ... ${E.heartBlue} ');
       heartbeats.add(event);
       _addHeartbeatToHash(event);
     });
 
-    arrivalStreamSubscription = fcmBloc.vehicleArrivalStream.listen((event) {
+    arrivalStreamSubscription = streamBloc.vehicleArrivalStream.listen((event) {
       pp('$mm ... vehicleArrivalStream delivered. ');
       if (mounted) {
         setState(() {});
       }
     });
     departureStreamSubscription =
-        fcmBloc.vehicleDepartureStream.listen((event) {
+        streamBloc.vehicleDepartureStream.listen((event) {
       pp('$mm ... vehicleDepartureStream delivered. ');
       if (mounted) {
         setState(() {});
       }
     });
-    dispatchStreamSubscription = fcmBloc.dispatchStream.listen((event) {
+    dispatchStreamSubscription = streamBloc.dispatchStream.listen((event) {
       pp('$mm ... dispatchStream delivered. ');
       if (mounted) {
         setState(() {});
       }
     });
-    passengerStreamSubscription = fcmBloc.passengerCountStream.listen((event) {
+    passengerStreamSubscription = streamBloc.passengerCountStream.listen((event) {
       pp('$mm ... passengerCountStream delivered. ');
       if (mounted) {
         setState(() {});
       }
     });
     locationResponseStreamSubscription =
-        fcmBloc.locationResponseStream.listen((event) {
+        streamBloc.locationResponseStream.listen((event) {
       pp('$mm ... locationResponseStream delivered. ');
       if (mounted) {
         setState(() {});
@@ -292,7 +213,7 @@ class AssociationRouteOperationsState extends State<AssociationRouteOperations> 
     });
 
     locationRequestStreamSubscription =
-        fcmBloc.locationRequestStream.listen((event) {
+        streamBloc.locationRequestStream.listen((event) {
       pp('$mm ... locationRequestStream delivered. ');
       if (mounted) {
         setState(() {});
@@ -437,12 +358,17 @@ class AssociationRouteOperationsState extends State<AssociationRouteOperations> 
   }
 
   Future<void> _zoomToHeartbeat(VehicleHeartbeat hb) async {
-    final latLng =
-        LatLng(hb.position!.coordinates!.last, hb.position!.coordinates!.first);
-    var cameraPos = CameraPosition(target: latLng, zoom: 16.0);
-    final GoogleMapController controller = await _mapController.future;
-    controller.animateCamera(CameraUpdate.newCameraPosition(cameraPos));
+    try {
+      final latLng =
+              LatLng(hb.position!.coordinates!.last, hb.position!.coordinates!.first);
+      var cameraPos = CameraPosition(target: latLng, zoom: 16.0);
+      final GoogleMapController controller = await _mapController.future;
+      controller.animateCamera(CameraUpdate.newCameraPosition(cameraPos));
+    } catch (e) {
+      pp(e);
+    }
     setState(() {});
+
   }
 
   int index = 0;
@@ -823,43 +749,13 @@ class AssociationRouteOperationsState extends State<AssociationRouteOperations> 
                 ),
               )),
 
-          showSignIn
-              ? Positioned(
-                  child: Center(
-                  child: SizedBox(
-                    height: 400,
-                    child: EmailAuthSignin(
-                        refresh: _refresh,
-                        onGoodSignIn: (mUser) {
-                          pp('$mm ......... sign in COOL, will get route data ${E.leaf}');
-                          setState(() {
-                            showSignIn = false;
-                            user = mUser;
-                          });
-                          _getRouteBags();
-                          _control();
-                        },
-                        onSignInError: () {
-                          pp('$mm sign in error ${E.redDot}');
-                          if (mounted) {
-                            showSnackBar(
-                                backgroundColor: Colors.red,
-                                textStyle: const TextStyle(color: Colors.white),
-                                message: 'Sign In failed: $e',
-                                context: context);
-                          }
-                        }),
-                  ),
-                ))
-              : gapW4,
           _showBag
               ? Positioned(
                   right: 8,
                   top: 32,
                   child: stringsHelper == null
                       ? gapW32
-                      : AssociationBagWidget(
-                          bag: bag!,
+                      : AssociationCountsWidget(
                           width: 360,
                           date: date,
                           operationsSummary: stringsHelper!.operationsSummary,

@@ -8,6 +8,7 @@ import 'package:kasie_transie_web/utils/functions.dart';
 import 'package:kasie_transie_web/utils/prefs.dart';
 import 'package:kasie_transie_web/widgets/splash_page.dart';
 import 'package:page_transition/page_transition.dart';
+import 'blocs/stream_bloc.dart';
 import 'blocs/theme_bloc.dart';
 import 'dashboard.dart';
 import 'firebase_options.dart';
@@ -32,9 +33,9 @@ Future<void> main() async {
 
   await storageManager.initialize();
   user = await prefs.getUser();
-  if (user != null) {
-    // fcmBloc.subscribeForOwnerMarshalOfficialAmbassador('KasieWeb');
-  }
+  // if (user != null) {
+  //   fcmBloc.initialize();
+  // }
 
   dot.dotenv.load();
   runApp(const KasieWeb());

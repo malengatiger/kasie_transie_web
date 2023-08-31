@@ -6,8 +6,6 @@
 package.json,7/0/7030d0b2f71b999ff89a343de08c414af32fc93a
 A
 package-lock.json,f/a/fa288d1472d29beccb489a676f68739ad365fc47
-L
-web/firebase-messaging-sw.js,c/8/c8d092fd9c8b6e5e805dbdd7b94593c72d9e20f5
 A
 web/sqflite_sw.js,7/0/703026158593611ead95f9696aa60d8b1d9604f4
 Q
@@ -116,8 +114,6 @@ T
 $data/ambassador_passenger_count.dart,e/d/edce618897be4171c8e2fd8628b838885507013d
 Q
 !lib/l10n/translation_handler.dart,6/8/68d04abc6150923db0a7f3d8e7767b64bd6103db
->
-web/index.html,4/9/49767019a2fee22a613912508aa2789b74108680
 C
 assets/l10n/af.json,d/5/d561064bc56d00f90fac4be2dd98ed7db721b097
 F
@@ -170,8 +166,6 @@ I
 data/association_bag.dart,6/f/6f98fd6855e2ece92ef0c4381af26b4f4dce9acc
 L
 lib/l10n/strings_helper.dart,5/e/5ecb0cab281e78a60ef840d670f2fc6b1209d253
-G
-lib/blocs/fcm_bloc.dart,0/1/01232b5db0226a73836e529581a5214a8d107fa6
 _
 /lib/maps/cluster_maps/commuter_cluster_map.dart,9/e/9e056ef085ffe5fbbd8dc21b10ca032cb4ccf407
 R
@@ -182,8 +176,6 @@ R
 Gemfile,d/e/de3150c01c3a946a6168173c4116741379fe3579
 D
 lib/environment.dart,3/6/36c01db9c89b185855588b380c3a8c002992b3fc
-[
-+lib/maps/cluster_maps/live_cluster_map.dart,6/e/6ecaaad392143ebf59bd85e0af384f5db6c9a83f
 K
 lib/widgets/color_grid.dart,0/e/0e978b403944242a0a366d769a67d3cbd27a4ee3
 8

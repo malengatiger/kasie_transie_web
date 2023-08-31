@@ -22,8 +22,8 @@ class MyChartData {
       gridData: FlGridData(
         show: true,
         drawVerticalLine: false,
-        horizontalInterval: 1,
-        verticalInterval: 1,
+        horizontalInterval: 4,
+        verticalInterval: 4,
         getDrawingHorizontalLine: (value) {
           return FlLine(
             color: colors.first,
@@ -73,7 +73,7 @@ class MyChartData {
       //   border: Border.all(color: const Color(0xff37434d)),
       // ),
       minX: 0,
-      maxX: 12,
+      maxX: 24,
       minY: 0,
       maxY: maxY,
       lineBarsData: [
@@ -83,7 +83,7 @@ class MyChartData {
           gradient: LinearGradient(
             colors: gradientColors,
           ),
-          barWidth: 5,
+          barWidth: 2,
           isStrokeCapRound: true,
           dotData: const FlDotData(
             show: false,
@@ -109,7 +109,7 @@ class MyChartData {
       fontWeight: FontWeight.normal,
       fontSize: 12,
     );
-    if (value > 11) {
+    if (value > 23) {
       return gapH16;
     }
     late Widget text;

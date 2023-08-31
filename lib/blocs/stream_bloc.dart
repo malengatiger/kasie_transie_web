@@ -19,28 +19,13 @@ import '../utils/constants.dart';
 import '../utils/emojis.dart';
 import '../utils/functions.dart';
 
-final FcmBloc fcmBloc = FcmBloc();
+final StreamBloc streamBloc = StreamBloc();
 
-class FcmBloc {
-  final mm = '${E.broc}${E.broc}${E.broc}${E.broc} FcmBloc: ${E.broc}${E.broc}';
+class StreamBloc {
+  final mm = '${E.broc}${E.broc}${E.broc}${E.broc} StreamBloc: ${E.broc}${E.broc}';
 
-  initialize() async {
-    pp('\n\n$mm ... initialize FCM .......: ${E.blueDot}${E.blueDot}');
-
-    await FirebaseMessaging.instance.setAutoInitEnabled(true);
-
-    FirebaseMessaging.instance.onTokenRefresh.listen((token) {
-      pp('$mm ... onTokenRefresh: will add association token to backend; '
-          '${E.blueDot} \ntoken: $token');
-    });
-
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      pp('$mm ... ${E.blueDot} onMessage: data: ${message.data}');
-      pp('$mm ... ${E.blueDot} onMessage: senderId: ${message.senderId}');
-
-    });
-
-    pp('$mm ... initialize FCM COMPLETE! will listen to all FCM messages ${E.blueDot} ');
+  StreamBloc() {
+    pp('$mm ......... StreamBloc constructor ... ${E.appleRed}');
   }
 
   void processFCMessage(Map<String, dynamic> data) {

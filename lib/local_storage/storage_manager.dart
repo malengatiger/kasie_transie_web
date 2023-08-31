@@ -23,37 +23,49 @@ late Database db;
 class StorageManager {
   static const mm = '🔵🔵🔵🔵🔵 StorageManager 🔵🔵';
 
-  final routeStore = stringMapStoreFactory.store();
-  final routeLandmarkStore = stringMapStoreFactory.store();
-  final routePointStore = stringMapStoreFactory.store();
-  final routeCityStore = stringMapStoreFactory.store();
-  final arrivalStore = stringMapStoreFactory.store();
-  final departureStore = stringMapStoreFactory.store();
-  final commuterRequestStore = stringMapStoreFactory.store();
-  final heartbeatStore = stringMapStoreFactory.store();
-  final dispatchStore = stringMapStoreFactory.store();
-  final passengerStore = stringMapStoreFactory.store();
-  final timeSeriesStore = stringMapStoreFactory.store();
-  final carStore = stringMapStoreFactory.store();
-
+  final routeStore = stringMapStoreFactory.store('routeStore');
+  final routeLandmarkStore = stringMapStoreFactory.store('routeLandmarkStore');
+  final routePointStore = stringMapStoreFactory.store('routePointStore');
+  final routeCityStore = stringMapStoreFactory.store('routeCityStore');
+  final arrivalStore = stringMapStoreFactory.store('arrivalStore');
+  final departureStore = stringMapStoreFactory.store('departureStore');
+  final commuterRequestStore = stringMapStoreFactory.store('commuterRequestStore');
+  final heartbeatStore = stringMapStoreFactory.store('heartbeatStore');
+  final dispatchStore = stringMapStoreFactory.store('dispatchStore');
+  final passengerStore = stringMapStoreFactory.store('passengerStore');
+  final timeSeriesStore = stringMapStoreFactory.store('timeSeriesStore');
+  final carStore = stringMapStoreFactory.store('carStore');
 
   final factory = databaseFactoryWeb;
 
   Future initialize() async {
-    pp('\n\n$mm ... initialize StorageManager ... open sembast database ...\n\n');
+    pp('\n\n$mm ... initialize StorageManager ... open sembast database ...');
     // Open the database
     db = await factory.openDatabase('kasiedb');
-    pp('$mm ... initialize ... open sembast database ... '
+    pp('$mm ... initialize ... open sembast database ... ${E.heartBlue}'
         'path: ${db.path} version: ${db.version}');
-
   }
 
   Future addVehicles(List<Vehicle> cars) async {
+    int cnt = 0;
     cars.forEach((car) async {
-      final m = Map<String, Map<String,dynamic>>();
+      final m = Map<String, Map<String, dynamic>>();
       m[car.vehicleId!] = car.toJson();
-      await carStore.add(db, m);
+      final res =
+          await carStore.record(car.vehicleId!).update(db, car.toJson());
+
+      if (res == null) {
+        final res = await carStore.record(car.vehicleId!).add(db, car.toJson());
+        if (res != null) {
+          cnt++;
+        }
+      } else {
+        cnt++;
+      }
     });
+    final tot3 = await carStore.count(db);
+    pp('$mm ... addVehicles ${E.appleRed} ${E.appleRed} '
+        'cached  $cnt  cars: ${E.blueDot} $cnt total in store : $tot3');
   }
 
   Future<Route?> getRoute(String routeId) async {
@@ -78,72 +90,95 @@ class StorageManager {
     return list;
   }
 
+  Future<List<Vehicle>> getCars() async {
+    var list = <Vehicle>[];
+    final snapshots = await carStore.find(db);
+    for (var snap in snapshots.toList()) {
+      list.add(Vehicle.fromJson(snap.value));
+    }
+    pp('$mm ... Vehicles found in cache: ${list.length} ...');
+    return list;
+  }
+
   Future<List<VehicleArrival>> getArrivals(String startDate) async {
     var list = <VehicleArrival>[];
-    final snapshots = await arrivalStore.find(db,
-        finder: Finder(filter: Filter.greaterThanOrEquals('created', startDate)));
+    final snapshots =  await arrivalStore.find(db,
+        finder:
+            Finder(filter: Filter.greaterThanOrEquals('created', startDate)));
 
     for (var snap in snapshots) {
       list.add(VehicleArrival.fromJson(snap.value));
     }
-    pp('$mm ... VehicleArrivals found in cache: ${list.length} ...');
+    pp('$mm ... VehicleArrivals found in cache: ${list.length} ... startDate: $startDate');
     return list;
   }
+
   Future<List<VehicleDeparture>> getDepartures(String startDate) async {
     var list = <VehicleDeparture>[];
     final snapshots = await departureStore.find(db,
-        finder: Finder(filter: Filter.greaterThanOrEquals('created', startDate)));
+        finder:
+            Finder(filter: Filter.greaterThanOrEquals('created', startDate)));
 
     for (var snap in snapshots) {
       list.add(VehicleDeparture.fromJson(snap.value));
     }
-    pp('$mm ... VehicleDepartures found in cache: ${list.length} ...');
+    pp('$mm ... VehicleDepartures found in cache: ${list.length} ... startDate: $startDate');
     return list;
   }
+
   Future<List<DispatchRecord>> getDispatches(String startDate) async {
     var list = <DispatchRecord>[];
     final snapshots = await dispatchStore.find(db,
-        finder: Finder(filter: Filter.greaterThanOrEquals('created', startDate)));
+        finder:
+            Finder(filter: Filter.greaterThanOrEquals('created', startDate)));
 
     for (var snap in snapshots) {
       list.add(DispatchRecord.fromJson(snap.value));
     }
-    pp('$mm ... DispatchRecords found in cache: ${list.length} ...');
+    pp('$mm ... DispatchRecords found in cache: ${list.length} ... startDate: $startDate');
     return list;
   }
+
   Future<List<VehicleHeartbeat>> getHeartbeats(String startDate) async {
     var list = <VehicleHeartbeat>[];
     final snapshots = await heartbeatStore.find(db,
-        finder: Finder(filter: Filter.greaterThanOrEquals('created', startDate)));
+        finder:
+            Finder(filter: Filter.greaterThanOrEquals('created', startDate)));
 
     for (var snap in snapshots) {
       list.add(VehicleHeartbeat.fromJson(snap.value));
     }
-    pp('$mm ... VehicleHeartbeat found in cache: ${list.length} ...');
+    pp('$mm ... VehicleHeartbeat found in cache: ${list.length} ... startDate: $startDate');
     return list;
   }
-  Future<List<AmbassadorPassengerCount>> getPassengerCounts(String startDate) async {
+
+  Future<List<AmbassadorPassengerCount>> getPassengerCounts(
+      String startDate) async {
     var list = <AmbassadorPassengerCount>[];
     final snapshots = await passengerStore.find(db,
-        finder: Finder(filter: Filter.greaterThanOrEquals('created', startDate)));
+        finder:
+            Finder(filter: Filter.greaterThanOrEquals('created', startDate)));
 
     for (var snap in snapshots) {
       list.add(AmbassadorPassengerCount.fromJson(snap.value));
     }
-    pp('$mm ... AmbassadorPassengerCounts found in cache: ${list.length} ...');
+    pp('$mm ... AmbassadorPassengerCounts found in cache: ${list.length} ... startDate: $startDate');
     return list;
   }
+
   Future<List<CommuterRequest>> getCommuterRequests(String startDate) async {
     var list = <CommuterRequest>[];
     final snapshots = await commuterRequestStore.find(db,
-        finder: Finder(filter: Filter.greaterThanOrEquals('dateRequested', startDate)));
+        finder: Finder(
+            filter: Filter.greaterThanOrEquals('dateRequested', startDate)));
 
     for (var snap in snapshots) {
       list.add(CommuterRequest.fromJson(snap.value));
     }
-    pp('$mm ... CommuterRequest found in cache: ${list.length} ...');
+    pp('$mm ... CommuterRequest found in cache: ${list.length} ... startDate: $startDate');
     return list;
   }
+
   Future<List<RouteLandmark>> getRouteLandmarks(String routeId) async {
     var list = <RouteLandmark>[];
     final snapshots = await routeLandmarkStore.find(db,
@@ -152,9 +187,10 @@ class StorageManager {
     for (var snap in snapshots) {
       list.add(RouteLandmark.fromJson(snap.value));
     }
-    pp('$mm ... getRouteLandmarks found: ${list.length} ...');
+    pp('$mm ... getRouteLandmarks found: ${list.length} ... for routeId: $routeId');
     return list;
   }
+
   Future<List<RoutePoint>> getRoutePoints(String routeId) async {
     var list = <RoutePoint>[];
     final snapshots = await routePointStore.find(db,
@@ -163,7 +199,7 @@ class StorageManager {
     for (var snap in snapshots) {
       list.add(RoutePoint.fromJson(snap.value));
     }
-    pp('$mm ... getRoutePoints found: ${list.length} ...');
+    pp('$mm ... getRoutePoints found: ${list.length} ... for routeId: $routeId');
     return list;
   }
 
@@ -171,184 +207,299 @@ class StorageManager {
     pp('$mm ... ${bags.length} routes to cache ..... : ${E.blueDot}${E.blueDot}${E.blueDot}');
 
     for (var bag in bags) {
-      final m = Map<String, Map<String,dynamic>>();
-      m[bag.route!.routeId!] = bag.route!.toJson();
-      await routeStore.add(db, m);
-      pp('$mm ... route: ${bag.route!.name} ${E.appleRed} ${E.appleRed} cached    ${E.blueDot}${E.blueDot}${E.blueDot} ');
+      final res = await routeStore
+          .record(bag.route!.routeId!)
+          .update(db, bag.route!.toJson());
+      int cnt = 0;
+      if (res == null) {
+        final res = await carStore
+            .record(bag.route!.routeId!)
+            .add(db, bag.route!.toJson());
+        if (res != null) {
+          cnt++;
+        }
+      } else {
+        cnt++;
+      }
+      final tot = await getRoutes();
+      pp('$mm ... route: ${bag.route!.name} ${E.appleRed} ${E.appleRed} '
+          'cached  $cnt total in store : ${tot.length} ');
 
       //add landmarks ...
+      cnt = 0;
       bag.routeLandmarks.forEach((landmark) async {
-        final b = Map<String, Map<String,dynamic>>();
-        b[landmark.landmarkId!] = landmark.toJson();
-        await routeLandmarkStore.add(db, b);
+        final res = await routeLandmarkStore
+            .record(landmark.landmarkId!)
+            .update(db, landmark.toJson());
+        if (res == null) {
+          final res2 = await routeLandmarkStore
+              .record(landmark.landmarkId!)
+              .add(db, landmark.toJson());
+          if (res2 != null) {
+            cnt++;
+          }
+        } else {
+          cnt++;
+        }
       });
-      pp('$mm ... ${bag.route!.name} ${E.appleRed} ${E.appleRed} cached    route landmarks: ${E.blueDot} ${bag.routeLandmarks.length}');
+
+      try {
+        final tot1 = await getRouteLandmarks(bag.routeLandmarks.first.routeId!);
+        pp('$mm ... ${bag.route!.name} ${E.appleRed} ${E.appleRed} cached $cnt route landmarks: '
+                  '${E.blueDot} $cnt total in store : ${tot1.length}');
+      } catch (e) {
+        pp(e);
+      }
 
       //add points ...
 
+      cnt = 0;
       bag.routePoints.forEach((routePoint) async {
-        final b = Map<String, Map<String,dynamic>>();
-        b[routePoint.routePointId!] = routePoint.toJson();
-        await routePointStore.add(db, m);
+        final res = await routePointStore
+            .record(routePoint.routePointId!)
+            .update(db, routePoint.toJson());
+        if (res == null) {
+          final res2 = await routePointStore
+              .record(routePoint.routePointId!)
+              .add(db, routePoint.toJson());
+          if (res2 != null) {
+            cnt++;
+          }
+        } else {
+          cnt++;
+        }
       });
-      pp('$mm ... ${bag.route!.name} ${E.appleRed} ${E.appleRed} cached    route points: ${E.blueDot} ${bag.routePoints.length}');
+      try {
+        final tot2 = await getRoutePoints(bag.routePoints.first.routeId!);
+        pp('$mm ... ${bag.route!.name} ${E.appleRed} ${E.appleRed} cached route points: '
+                  '${E.blueDot} $cnt total in store : ${tot2.length}');
+      } catch (e) {
+        pp(e);
+      }
 
       //add cities ...
 
-      int index = 0;
+      cnt = 0;
       bag.routeCities.forEach((city) async {
-        final b = Map<String, Map<String,dynamic>>();
-        b['${city.routeId!}_$index'] = city.toJson();
-        await routeCityStore.add(db, m);
-        index++;
+        final res = await routeCityStore
+            .record('${city.routeId!}_${city.cityId!}')
+            .update(db, city.toJson());
+        if (res == null) {
+          final res2 = await routeCityStore
+              .record('${city.routeId!}_${city.cityId!}')
+              .add(db, city.toJson());
+          if (res2 != null) {
+            cnt++;
+          }
+        } else {
+          cnt++;
+        }
       });
-      pp('$mm ... ${bag.route!.name} ${E.appleRed} ${E.appleRed} cached    route cities: ${E.blueDot} ${bag.routeCities.length}');
 
+      final tot3 = await routeCityStore.count(db);
+      pp('$mm ... ${bag.route!.name} ${E.appleRed} ${E.appleRed} '
+          'cached  $cnt  route cities: ${E.blueDot} $cnt total in store from count(db) : $tot3');
     }
-    final test = await getRoutes();
-    pp('$mm ... found in web sembast: ${E.blueDot} ${test.length}');
   }
 
-  Future addPassengerCounts(List<AmbassadorPassengerCount> passengerCounts) async {
+  Future addPassengerCounts(
+      List<AmbassadorPassengerCount> passengerCounts) async {
     pp('$mm ... addPassengerCounts : ${passengerCounts.length}');
-    int index = 0;
-    for (var count in passengerCounts) {
-      // myPrettyJsonPrint(count.toJson());
-      final b = Map<String, Map<String,dynamic>>();
-      b[count.passengerCountId!] = count.toJson();
+    int cnt = 0;
+    for (var value in passengerCounts) {
       try {
-        final key = await passengerStore.add(db, b);
-        // pp('$mm ... cached OK, Anna? ${E.leaf} ${count.vehicleReg} ${E.leaf} #$index key: $key');
-        index++;
-
+        final key = await passengerStore
+            .record(value.passengerCountId!)
+            .update(db, value.toJson());
+        if (key == null) {
+          final key2 = await passengerStore
+              .record(value.passengerCountId!)
+              .add(db, value.toJson());
+          if (key2 != null) {
+            cnt++;
+          }
+        } else {
+          cnt++;
+        }
       } catch (e) {
         pp('$mm ... do we fall down here, Joe?');
         pp(e);
       }
     }
-    pp('$mm ... do we get here, Michelle? ${E.heartBlue}');
+    try {
+      pp('$mm ... addPassengerCounts: do we get here, Michelle? ${E.heartBlue}');
+      final startDate = DateTime.now().toUtc().subtract(Duration(days: 1)).toIso8601String();
+      final tot4 = await getPassengerCounts(startDate);
 
-    pp('$mm ... AmbassadorPassengerCount ${E.appleRed} ${E.appleRed} ${E.appleRed} cached'
-        ' : ${passengerCounts.length}');
-
+      pp('$mm ... AmbassadorPassengerCount ${E.appleRed} ${E.appleRed} ${E.appleRed} cached'
+              ' $cnt total in store : ${tot4.length}');
+    } catch (e) {
+      print(e);
+    }
   }
 
   Future addHeartbeats(List<VehicleHeartbeat> heartbeats) async {
     pp('$mm ... addHeartbeats : ${heartbeats.length}');
+    var cnt = 0;
     for (var value in heartbeats) {
-      final b = Map<String, Map<String,dynamic>>();
-      b[value.vehicleHeartbeatId!] = value.toJson();
-      await heartbeatStore.add(db, b);
+      final key = await heartbeatStore
+          .record(value.vehicleHeartbeatId!)
+          .update(db, value.toJson());
+      if (key == null) {
+        final key2 = await heartbeatStore
+            .record(value.vehicleHeartbeatId!)
+            .add(db, value.toJson());
+        if (key2 != null) {
+          cnt++;
+        }
+      }
     }
-    pp('$mm ... VehicleHeartbeats ${E.appleRed} ${E.appleRed} cached    : ${heartbeats.length}');
+    try {
+      final startDate = DateTime.now().toUtc().subtract(Duration(days: 1)).toIso8601String();
+      final tot5 = await getHeartbeats(startDate);
+      pp('$mm ... VehicleHeartbeats ${E.appleRed} ${E.appleRed} '
+          'cached $cnt total in store : ${tot5.length}');
+    } catch (e) {
+      pp(e);
+    }
   }
-  Future addHeartbeatTimeSeries(List<AssociationHeartbeatAggregationResult> results) async {
+
+  Future addHeartbeatTimeSeries(
+      List<AssociationHeartbeatAggregationResult> results) async {
     pp('$mm ... addHeartbeatTimeSeries : ${results.length}');
+    var cnt = 0;
     for (var value in results) {
-      final b = Map<String, Map<String,dynamic>>();
-      b[value.key] = value.toJson();
-      await timeSeriesStore.add(db, b);
+      final key =
+          await timeSeriesStore.record(value.key).update(db, value.toJson());
+      if (key == null) {
+        final key2 =
+            await timeSeriesStore.record(value.key).add(db, value.toJson());
+        if (key2 != null) {
+          cnt++;
+        }
+      } else {
+        cnt++;
+      }
     }
-    pp('$mm ... AssociationHeartbeatAggregationResults ${E.appleRed} ${E.appleRed} cached    : ${results.length}');
+    final tot6 = await timeSeriesStore.count(db);
+    pp('$mm ... AssociationHeartbeatAggregationResults ${E.appleRed} ${E.appleRed} '
+        'cached $cnt total in store (used count(db) : $tot6');
   }
+
   Future addCommuterRequest(List<CommuterRequest> requests) async {
     pp('$mm ... addCommuterRequest : ${requests.length}');
+    var cnt = 0;
+
     for (var value in requests) {
-      final b = Map<String, Map<String,dynamic>>();
-      b[value.commuterRequestId!] = value.toJson();
-      await commuterRequestStore.add(db, b);
+      final key = await commuterRequestStore
+          .record(value.commuterRequestId!)
+          .update(db, value.toJson());
+      if (key == null) {
+        final key2 = await commuterRequestStore
+            .record(value.commuterRequestId!)
+            .add(db, value.toJson());
+        if (key2 != null) {
+          cnt++;
+        }
+      } else {
+        cnt++;
+      }
     }
-    pp('$mm ... CommuterRequests ${E.appleRed} ${E.appleRed} cached    : ${requests.length}');
+    try {
+      final startDate = DateTime.now().toUtc().subtract(Duration(days: 1)).toIso8601String();
+      final tot = await getCommuterRequests(startDate);
+      pp('$mm ... CommuterRequests ${E.appleRed} ${E.appleRed} cached '
+          '$cnt total in store : ${tot.length}');
+    } catch (e) {
+      pp(e);
+    }
   }
+
   Future addDispatches(List<DispatchRecord> dispatches) async {
     pp('$mm ... addDispatches : ${dispatches.length}');
+    var cnt = 0;
+
     for (var value in dispatches) {
-      final b = Map<String, Map<String,dynamic>>();
-      b[value.dispatchRecordId!] = value.toJson();
-      await dispatchStore.add(db, b);
+      final key = await dispatchStore
+          .record(value.dispatchRecordId!)
+          .update(db, value.toJson());
+      if (key == null) {
+        final key2 = await dispatchStore
+            .record(value.dispatchRecordId!)
+            .add(db, value.toJson());
+        if (key2 != null) {
+          cnt++;
+        }
+      } else {
+        cnt++;
+      }
     }
-    pp('$mm ... Dispatches ${E.appleRed} ${E.appleRed} cached    : ${dispatches.length}');
+    try {
+      final startDate = DateTime.now().toUtc().subtract(Duration(days: 1)).toIso8601String();
+      final tot = await getDispatches(startDate);
+      pp('$mm ... Dispatches ${E.appleRed} ${E.appleRed} cached  $cnt total in store : ${tot.length}');
+    } catch (e) {
+      pp(e);
+    }
   }
 
   Future addArrivals(List<VehicleArrival> arrivals) async {
     pp('$mm ... addArrivals : ${arrivals.length}');
-    for (var value in arrivals) {
-      final b = Map<String, Map<String,dynamic>>();
-      b[value.vehicleArrivalId!] = value.toJson();
-      await arrivalStore.add(db, b);
-    }
-    pp('$mm ... Arrivals ${E.appleRed} ${E.appleRed} cached    : ${arrivals.length}');
+    var cnt = 0;
 
+    for (var value in arrivals) {
+      final key = await arrivalStore
+          .record(value.vehicleArrivalId!)
+          .update(db, value.toJson());
+      if (key == null) {
+        final key2 = await arrivalStore
+            .record(value.vehicleArrivalId!)
+            .add(db, value.toJson());
+        if (key2 != null) {
+          cnt++;
+        }
+      } else {
+        cnt++;
+      }
+    }
+    try {
+      final startDate = DateTime.now().toUtc().subtract(Duration(days: 1)).toIso8601String();
+      final tot = await getArrivals(startDate);
+      pp('$mm ... Arrivals ${E.appleRed} ${E.appleRed} cached$cnt total in store : ${tot.length}');
+    } catch (e) {
+      pp(e);
+    }
   }
 
   Future addDepartures(List<VehicleDeparture> departures) async {
     pp('$mm ... addVehicleDepartures : ${departures.length}');
+    var cnt = 0;
     for (var value in departures) {
-      final b = Map<String, Map<String,dynamic>>();
-      b[value.vehicleDepartureId!] = value.toJson();
-      await departureStore.add(db, b);
+      final key = await departureStore
+          .record(value.vehicleDepartureId!)
+          .update(db, value.toJson());
+      if (key == null) {
+        final key2 = await departureStore
+            .record(value.vehicleDepartureId!)
+            .add(db, value.toJson());
+        if (key2 != null) {
+          cnt++;
+        }
+      } else {
+        cnt++;
+      }
     }
-    pp('$mm ... VehicleDepartures ${E.appleRed} ${E.appleRed} cached    : ${departures.length}');
+    try {
+      final startDate = DateTime.now().toUtc().subtract(Duration(days: 1)).toIso8601String();
+      final tot = await getDepartures(startDate);
+      pp('$mm ... VehicleDepartures ${E.appleRed} ${E.appleRed} cached  $cnt total in store : ${tot.length}');
+    } catch (e) {
+      pp(e);
+    }
   }
 
   StorageManager() {
-    pp('$mm ... constructor ...');
+    pp('$mm ... StorageManager constructor ... ${E.appleRed}');
     initialize();
   }
-//
-  // late Isar isar;
-  // initialize() async {
-  //   pp('$mm initialize StorageManager ....');
-  //
-  //   var path = "/assets/db";
-  //   isar = await Isar.open(
-  //     [RouteSchema, RouteLandmarkSchema, RoutePointSchema],
-  //     directory: path,
-  //   );
-  //   pp('$mm StorageManager initialized: ${isar.name} path: ${isar.path}');
-  // }
-  //
-  // Future savePoints(List<RoutePoint> points) async {
-  //   await isar.writeTxn(() async {
-  //     await isar.routePoints.putAll(points); // insert & update
-  //   });
-  //   pp('$mm points saved ....');
-  //
-  // }
-  // Future getPoints(String routeId) async {
-  //   final points = await isar.routePoints
-  //       .where()
-  //       .routeIdEqualTo(routeId) // use index
-  //       .findAll();
-  //   pp('$mm points retrieved : ${points.length} ....');
-  //   return points;
-  // }
-  //
-  // Future saveLandmarks(List<RouteLandmark> landmarks) async {
-  //   await isar.writeTxn(() async {
-  //     await isar.routeLandmarks.putAll(landmarks); // insert & update
-  //   });
-  //   pp('$mm landmarks saved ....${landmarks.length} for route: ${landmarks.first.routeName}');
-  //
-  // }
-  // Future getLandmarks(String routeId) async {
-  //   final marks = await isar.routeLandmarks
-  //       .where()
-  //       .routeIdEqualTo(routeId) // use index
-  //       .findAll();
-  //   pp('$mm landmarks retrieved : ${marks.length} ....');
-  //   return marks;
-  // }
-  // Future saveRoutes(List<lib.Route> routes) async {
-  //   await isar.writeTxn(() async {
-  //     await isar.routes.putAll(routes); // insert & update
-  //   });
-  //   pp('$mm routes saved ....${routes.length}');
-  //
-  // }
-  // Future getRoutes(String associationId) async {
-  //   final routes = await isar.routes.where().associationIdEqualTo(associationId).findAll();
-  //   pp('$mm routes retrieved : ${routes.length} ....');
-  //   return routes;
-  // }
 }

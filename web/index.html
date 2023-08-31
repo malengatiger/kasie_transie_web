@@ -114,13 +114,7 @@
     console.log('🔷 🔷 🔷 requestPermission is OK, listen for messages');
 
     messaging.onMessage(function (payload) {
-      console.log(
-        "[index.html] 🔴 🔴 🔴  Received foreground message, what do I do now, Boss? - call Dart! Fool! 🔴 🔴",
-        payload
-      );
-
       callDartMethod(payload);
-
     });
     console.log('🔷 🔷 🔷 Firebase onMessage seems alright');
     // Function to request permission and get the token
@@ -161,7 +155,6 @@
     }
     //
     function callDartMethod(mData) {
-      console.log('🔴 🔴 🔴 callDartMethod to post fcm data started ...');
       const message = {
         type: 'CALL_DART_METHOD',
         mData: mData,

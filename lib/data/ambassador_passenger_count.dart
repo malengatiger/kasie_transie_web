@@ -14,9 +14,9 @@ class AmbassadorPassengerCount {
   String? routeName;
   String? ownerId;
   String? ownerName;
-  int? passengersIn;
-  int? passengersOut;
-  int? currentPassengers;
+  int? passengersIn = 0;
+  int? passengersOut = 0;
+  int? currentPassengers = 0;
   String? passengerCountId;
   Position? position;
 

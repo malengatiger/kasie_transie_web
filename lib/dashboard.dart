@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:html';
 
 import 'package:flutter/material.dart';
 import 'package:kasie_transie_web/data/association_bag.dart';
@@ -8,10 +10,11 @@ import 'package:kasie_transie_web/network.dart';
 import 'package:kasie_transie_web/utils/color_and_locale.dart';
 import 'package:kasie_transie_web/utils/emojis.dart';
 import 'package:kasie_transie_web/utils/functions.dart';
+import 'package:kasie_transie_web/utils/javascript_message_util.dart';
 import 'package:kasie_transie_web/utils/navigator_utils.dart';
 import 'package:kasie_transie_web/utils/prefs.dart';
 import 'package:kasie_transie_web/widgets/association_bag_widget.dart';
-import 'package:kasie_transie_web/widgets/charts/line_chart.dart';
+import 'package:kasie_transie_web/widgets/charts/heartbeat_line_chart.dart';
 import 'package:kasie_transie_web/widgets/counts_widget.dart';
 import 'package:kasie_transie_web/widgets/dashboard_widgets/side_board.dart';
 import 'package:kasie_transie_web/widgets/days_drop_down.dart';
@@ -20,17 +23,21 @@ import 'package:kasie_transie_web/widgets/live_activities.dart';
 import 'package:kasie_transie_web/widgets/timer_widget.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-import 'blocs/fcm_bloc.dart';
+import 'blocs/stream_bloc.dart';
 import 'data/ambassador_passenger_count.dart';
+import 'data/commuter_request.dart';
 import 'data/dispatch_record.dart';
+import 'data/location_request.dart';
 import 'data/location_response.dart';
 import 'data/user.dart';
 import 'data/vehicle.dart';
 import 'data/vehicle_arrival.dart';
 import 'data/vehicle_departure.dart';
+import 'data/vehicle_heartbeat.dart';
 import 'data/vehicle_heartbeat_aggregation_result.dart';
 import 'l10n/translation_handler.dart';
 import 'maps/association_route_maps.dart';
+import 'maps/association_route_operations.dart';
 
 class AssociationDashboard extends StatefulWidget {
   const AssociationDashboard({Key? key}) : super(key: key);
@@ -43,8 +50,9 @@ class _AssociationDashboardState extends State<AssociationDashboard> {
   final mm = '🥬🥬🥬🥬🥬🥬 AssociationDashboard: 😡';
 
   User? user;
-  AssociationBag? bigBag;
+  // AssociationBag? bigBag;
   bool busy = false;
+  int totalPassengers = 0;
   List<Vehicle> cars = [];
   String? ownerDashboard,
       numberOfCars,
@@ -58,13 +66,25 @@ class _AssociationDashboardState extends State<AssociationDashboard> {
       thisMayTakeMinutes,
       historyCars,
       dispatchesText;
+  int days = 1;
 
-  late StreamSubscription<DispatchRecord> dispatchStreamSub;
-  late StreamSubscription<AmbassadorPassengerCount> passengerStreamSub;
-  late StreamSubscription<VehicleArrival> arrivalStreamSub;
-  late StreamSubscription<VehicleDeparture> departureStreamSub;
-  late StreamSubscription<LocationResponse> locResponseStreamSub;
-  late StreamSubscription<List<Vehicle>> vehiclesStreamSub;
+  bool _showSettings = false;
+  bool _showPassengerReport = false;
+  bool _showDispatchReport = false;
+  bool _showSendMessage = false;
+  bool _showCarLocation = false;
+  bool _showCars = false;
+  bool _showUsers = false;
+
+  late StreamSubscription<AssociationBag> assocBagStreamSubscription;
+  late StreamSubscription<VehicleHeartbeat> heartbeatStreamSubscription;
+  late StreamSubscription<VehicleArrival> arrivalStreamSubscription;
+  late StreamSubscription<VehicleDeparture> departureStreamSubscription;
+  late StreamSubscription<DispatchRecord> dispatchStreamSubscription;
+  late StreamSubscription<AmbassadorPassengerCount> passengerStreamSubscription;
+  late StreamSubscription<CommuterRequest> commuterStreamSubscription;
+  late StreamSubscription<LocationRequest> locationRequestStreamSubscription;
+  late StreamSubscription<LocationResponse> locationResponseStreamSubscription;
 
   String notRegistered =
       'You are not registered yet. Please call your administrator';
@@ -76,94 +96,116 @@ class _AssociationDashboardState extends State<AssociationDashboard> {
   String changeLanguage = 'Change Language or Color';
   String startEmailLinkSignin = 'Start Email Link Sign In';
   String signInWithPhone = 'Start Phone Sign In';
-
   late ColorAndLocale colorAndLocale;
+  List<AssociationHeartbeatAggregationResult> timeSeriesResults = [];
+  AssociationBag? bag;
+  List<VehicleHeartbeat> heartbeats = [];
+  String date = DateTime.now().toUtc().subtract(Duration(days: 1)).toIso8601String();
 
   @override
   void initState() {
     super.initState();
-    _listen();
-    _checkAuth();
+    control();
   }
 
+  control() async {
+    await _getTokenAndData();
+    await _setTexts();
+    _listen();
+    _getData(false);
+
+  }
   @override
   void dispose() {
-    dispatchStreamSub.cancel();
-    passengerStreamSub.cancel();
+    assocBagStreamSubscription.cancel();
+    heartbeatStreamSubscription.cancel();
+    arrivalStreamSubscription.cancel();
+    departureStreamSubscription.cancel();
+    dispatchStreamSubscription.cancel();
+    passengerStreamSubscription.cancel();
+    commuterStreamSubscription.cancel();
+    locationRequestStreamSubscription.cancel();
+    locationResponseStreamSubscription.cancel();
     super.dispose();
   }
 
-  void _listen() async {
-    pp('$mm ... listen to streams ........ ');
-    // vehiclesStreamSub =
-    //     networkHandler.vehiclesStream.listen((List<Vehicle> list) {
-    //   pp('$mm ... listApiDog.vehiclesStream delivered vehicles for: ${list.length}');
-    //   cars = list;
-    //   // _refreshBag();
-    //   if (mounted) {
-    //     setState(() {});
-    //   }
-    // });
-    departureStreamSub =
-        fcmBloc.vehicleDepartureStream.listen((VehicleDeparture departure) {
-      pp('$mm ... fcmBloc.vehicleDepartureStream delivered vehicle departure for: ${departure.vehicleReg}');
+  void _listen() {
+    pp('$mm will listen to fcm messaging ... '
+        '${E.heartBlue} ${E.heartBlue} ${E.heartBlue} ...');
+
+    assocBagStreamSubscription =
+        networkHandler.associationBagStream.listen((event) async {
+          pp('$mm associationBagStream delivered event ... ${E.heartBlue} ');
+          bag = event;
+          final d = DateTime.now().toLocal().toIso8601String();
+          final cl = await prefs.getColorAndLocale();
+          date = await getFmtDate(d, cl.locale, context);
+          if (mounted) {
+            setState(() {});
+          }
+        });
+
+    heartbeatStreamSubscription = streamBloc.heartbeatStreamStream.listen((event) {
+      pp('$mm heartbeatStreamStream delivered event ... ${E.heartBlue} ');
+      heartbeats.add(event);
       if (mounted) {
         setState(() {});
       }
     });
-    locResponseStreamSub = fcmBloc.locationResponseStream
-        .listen((LocationResponse locationResponse) {
-      pp('$mm ... fcmBloc.locationResponseStream delivered loc response for: ${locationResponse.vehicleReg}');
+
+    arrivalStreamSubscription = streamBloc.vehicleArrivalStream.listen((event) {
+      pp('$mm ... vehicleArrivalStream delivered. ');
       if (mounted) {
         setState(() {});
       }
     });
-    arrivalStreamSub =
-        fcmBloc.vehicleArrivalStream.listen((VehicleArrival vehicleArrival) {
-      pp('$mm ... fcmBloc.dispatchStream delivered dispatch for: ${vehicleArrival.vehicleReg}');
-      bigBag!.arrivals.add(vehicleArrival);
+    departureStreamSubscription =
+        streamBloc.vehicleDepartureStream.listen((event) {
+          pp('$mm ... vehicleDepartureStream delivered. ');
+          if (mounted) {
+            setState(() {});
+          }
+        });
+    dispatchStreamSubscription = streamBloc.dispatchStream.listen((event) {
+      pp('$mm ... dispatchStream delivered. ');
       if (mounted) {
         setState(() {});
       }
     });
-    dispatchStreamSub = fcmBloc.dispatchStream.listen((DispatchRecord dRec) {
-      pp('$mm ... fcmBloc.dispatchStream delivered dispatch for: ${dRec.vehicleReg}');
-      bigBag!.dispatchRecords.add(dRec);
-      totalPassengers += dRec.passengers!;
+    passengerStreamSubscription = streamBloc.passengerCountStream.listen((event) {
+      pp('$mm ... passengerCountStream delivered. ');
       if (mounted) {
         setState(() {});
       }
     });
-    passengerStreamSub =
-        fcmBloc.passengerCountStream.listen((AmbassadorPassengerCount cunt) {
-      pp('$mm ... fcmBloc.passengerCountStream delivered count for: ${cunt.vehicleReg}');
-      bigBag!.passengerCounts.add(cunt);
-      _calculateTotalPassengers();
-      if (mounted) {
-        setState(() {});
-      }
-    });
+    locationResponseStreamSubscription =
+        streamBloc.locationResponseStream.listen((event) {
+          pp('$mm ... locationResponseStream delivered. ');
+          if (mounted) {
+            setState(() {});
+          }
+        });
+
+    locationRequestStreamSubscription =
+        streamBloc.locationRequestStream.listen((event) {
+          pp('$mm ... locationRequestStream delivered. ');
+          if (mounted) {
+            setState(() {});
+          }
+        });
   }
 
-  void _checkAuth() async {
-    await _setTexts();
+
+  Future _getTokenAndData() async {
     user = await prefs.getUser();
     if (user == null) {
       _navigateToEmailAuth();
     } else {
-      _getPermission();
-      _getData(false);
+      pp('$mm ... calling javascriptMessageUtil to get FCM token via JavaScript ...');
+      await javascriptMessageUtil.getTokenAndData(window, user!);
     }
   }
 
-  void _getPermission() async {
-    Map<Permission, PermissionStatus> statuses = await [
-      Permission.location,
-      Permission.storage,
-      Permission.camera,
-    ].request();
-    pp('$mm PermissionStatus: statuses: $statuses');
-  }
 
   Future _setTexts() async {
     var c = await prefs.getColorAndLocale();
@@ -222,13 +264,15 @@ class _AssociationDashboardState extends State<AssociationDashboard> {
           refresh: true,
         ),
         context);
-    pp('\n\n$mm ................ back from sign in: $res');
+
+    pp('\n\n$mm ................ back from sign in: $res, call _getTokenAndData() ');
     user = await prefs.getUser();
-    _getData(false);
+    await _getTokenAndData();
+    _getData(true);
   }
 
   Future<void> _navigateToMaps() async {
-    await navigateWithScale(const AssociationRouteMaps(), context);
+    await navigateWithScale(const AssociationRouteOperations(), context);
     user = await prefs.getUser();
     _getData(false);
   }
@@ -239,11 +283,8 @@ class _AssociationDashboardState extends State<AssociationDashboard> {
     // _getData(false);
   }
 
-  int totalPassengers = 0;
-
-  // List<AssociationHeartbeatAggregationResult> results = [];
   Future _refreshBag() async {
-    final date = DateTime.now().toUtc().subtract(Duration(days: days));
+    date = DateTime.now().toUtc().subtract(Duration(days: days)).toIso8601String();
     setState(() {
       busy = true;
     });
@@ -269,7 +310,7 @@ class _AssociationDashboardState extends State<AssociationDashboard> {
   }
 
   Future _getData(bool refresh) async {
-    pp('$mm ............................ getting owner data ....');
+    pp('$mm ............................ getting association bag, cars and timeSeries data ....');
     try {
       setState(() {
         busy = true;
@@ -293,6 +334,7 @@ class _AssociationDashboardState extends State<AssociationDashboard> {
             context: context);
       }
     }
+    pp('$mm ........ setting state ${E.peach}..... association bag, cars and timeSeries data obtained....');
     setState(() {
       busy = false;
     });
@@ -301,30 +343,20 @@ class _AssociationDashboardState extends State<AssociationDashboard> {
   Future<void> _handleData(bool refresh) async {
     final date = DateTime.now().toUtc().subtract(Duration(days: days));
     pp('$mm _handleData ............................ '
-        'getting association data ...');
+        'getting association time series ...');
 
+    timeSeriesResults = await networkHandler.getAssociationHeartbeatTimeSeries(
+        user!.associationId!, date.toIso8601String());
     cars = await networkHandler.getAssociationVehicles(
-        associationId: user!.associationId!);
-    bigBag = await networkHandler.getAssociationBag(
-        user!.associationId!, date.toIso8601String(), refresh);
+        associationId: user!.associationId!, refresh: refresh);
 
-    pp('$mm _handleData .. association bag: ${E.appleRed} '
-        '\n🔴 cars: ${cars.length} '
-        '\n🔴 vehicleHeartbeats: ${bigBag?.heartbeats.length} '
-        '\n🔴 vehicleArrivals: ${bigBag?.arrivals.length} '
-        '\n🔴 dispatchRecords: ${bigBag?.dispatchRecords.length} '
-        '\n🔴 passengerCounts: ${bigBag?.passengerCounts.length} '
-        '\n🔴 vehicleDepartures: ${bigBag?.departures.length}');
+    pp('$mm _handleData .. association 🔵🔵 timeSeries : '
+        '${E.appleRed} ${timeSeriesResults.length}');
 
-    _calculateTotalPassengers();
+    setState(() {});
   }
 
-  void _calculateTotalPassengers() {
-    totalPassengers = 0;
-    for (var value in bigBag!.passengerCounts) {
-      totalPassengers += value.passengersIn!;
-    }
-  }
+
 
   Future<void> _navigateToCarList() async {
     pp('$mm .... _navigateToCarList ..........');
@@ -337,26 +369,17 @@ class _AssociationDashboardState extends State<AssociationDashboard> {
     pp('$mm .... back from car list');
   }
 
-  int days = 1;
-
-  bool _showSettings = false;
-  bool _showPassengerReport = false;
-  bool _showDispatchReport = false;
-  bool _showSendMessage = false;
-  bool _showCarLocation = false;
-  bool _showCars = false;
-  bool _showUsers = false;
-
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
     final height = MediaQuery.of(context).size.height;
-    pp('$mm ................... width: $width height: $height');
+    // pp('$mm ................... width: $width height: $height');
     final width1 = 300.0;
     final width2 = 800.0;
-    final width3 = 400.0;
+    final width3 = 440.0;
 
     final cutoffDate = DateTime.now().toUtc().subtract(Duration(days: days));
+    // pp('$mm build ................... time-series: ${timeSeriesResults.length}');
 
     return SafeArea(
       child: Scaffold(
@@ -385,6 +408,7 @@ class _AssociationDashboardState extends State<AssociationDashboard> {
                     onDaysPicked: (d) {
                       setState(() {
                         days = d;
+                        date = DateTime.now().toUtc().subtract(Duration(days: days)).toIso8601String();
                       });
                       _refreshBag();
                     },
@@ -422,91 +446,96 @@ class _AssociationDashboardState extends State<AssociationDashboard> {
                       color: Theme.of(context).primaryColor)),
             ],
           ),
-          body: Row(
-            mainAxisAlignment: MainAxisAlignment.start,
-            crossAxisAlignment: CrossAxisAlignment.center,
+          body: Stack(
             children: [
-              SizedBox(
-                width: width1,
-                child: SideBoard(
-                    title: 'Menu',
-                    onUsers: () {
-                      setState(() {
-                        _showUsers = true;
-                      });
-                    },
-                    onCars: () {
-                      setState(() {
-                        _showCars = true;
-                      });
-                    },
-                    onLocateCar: () {
-                      setState(() {
-                        _showCarLocation = true;
-                      });
-                    },
-                    onSendMessage: () {
-                      setState(() {
-                        _showSendMessage = true;
-                      });
-                    },
-                    onDispatchReport: () {
-                      setState(() {
-                        _showDispatchReport = true;
-                      });
-                    },
-                    onPassengerReport: () {
-                      setState(() {
-                        _showPassengerReport = true;
-                      });
-                    },
-                    onSettings: () {
-                      setState(() {
-                        _showSettings = true;
-                      });
-                    }),
-              ),
-              gapW32,
-              SizedBox(
-                width: width2,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Card(
-                        shape: getDefaultRoundedBorder(),
-                        elevation: 4,
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: SizedBox(
-                              height: 540,
-                              child: const AssociationHeartbeatChart()),
-                        ),
-                      ),
-                      gapH32,
-                      gapH32,
-                      LiveDisplay(
-                          width: 840, height: 160, cutoffDate: cutoffDate),
-                    ],
+              Row(
+                mainAxisAlignment: MainAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: width1,
+                    child: SideBoard(
+                        title: 'Menu',
+                        onUsers: () {
+                          setState(() {
+                            _showUsers = true;
+                          });
+                        },
+                        onCars: () {
+                          setState(() {
+                            _showCars = true;
+                          });
+                        },
+                        onLocateCar: () {
+                          setState(() {
+                            _showCarLocation = true;
+                          });
+                        },
+                        onSendMessage: () {
+                          setState(() {
+                            _showSendMessage = true;
+                          });
+                        },
+                        onDispatchReport: () {
+                          setState(() {
+                            _showDispatchReport = true;
+                          });
+                        },
+                        onPassengerReport: () {
+                          setState(() {
+                            _showPassengerReport = true;
+                          });
+                        },
+                        onSettings: () {
+                          setState(() {
+                            _showSettings = true;
+                          });
+                        }),
                   ),
-                ),
-              ),
-              bigBag == null
-                  ? gapH16
-                  : SizedBox(
-                      width: width3,
-                      child: AssociationBagWidget(
-                          bag: bigBag!,
-                          width: width,
-                          operationsSummary: 'Operations Summary',
-                          dispatches: dispatchesText!,
-                          passengers: passengerCounts!,
-                          arrivals: arrivalsText!,
-                          departures: departuresText!,
-                          heartbeats: heartbeatText!,
-                          lastUpdated: DateTime.now().toIso8601String(),
-                          date: DateTime.now().toIso8601String()),
+                  gapW32,
+                  timeSeriesResults.isEmpty? gapW32: SizedBox(
+                    width: width2,
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Card(
+                            shape: getDefaultRoundedBorder(),
+                            elevation: 4,
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: SizedBox(
+                                  height: 540,
+                                  child: const AssociationHeartbeatChart(
+                                  )),
+                            ),
+                          ),
+                          gapH32,
+                          gapH32,
+                          LiveDisplay(
+                              width: 840, height: 160, cutoffDate: cutoffDate),
+                        ],
+                      ),
                     ),
+                  ),
+                  gapW32,
+                 SizedBox(
+                    width: width3,
+                    child: dispatchesText == null? gapW32: AssociationCountsWidget(
+                        color: Theme.of(context).cardColor,
+                        width: width,
+                        operationsSummary: 'Operations Summary',
+                        dispatches: dispatchesText!,
+                        passengers: passengerCounts!,
+                        arrivals: arrivalsText!,
+                        departures: departuresText!,
+                        heartbeats: heartbeatText!,
+                        lastUpdated: DateTime.now().toIso8601String(),
+                        date: date),
+                  ),
+                ],
+              ),
+              busy? Positioned(child: Center(child: TimerWidget(title: 'Loading data ...'))): gapW32,
             ],
           )),
     );

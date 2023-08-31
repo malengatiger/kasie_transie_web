@@ -6,8 +6,6 @@
 .gitignore,a/5/a5cc2925ca8258af241be7e5b0381edf30266302
 A
 package-lock.json,f/a/fa288d1472d29beccb489a676f68739ad365fc47
-L
-web/firebase-messaging-sw.js,c/8/c8d092fd9c8b6e5e805dbdd7b94593c72d9e20f5
 Q
 !lib/widgets/color_and_locale.dart,3/a/3a25de77887c5c640c215fbb7de7cee44f89f73a
 A
@@ -116,8 +114,6 @@ E
 firebase.json,5/9/59951656e3803454427cfe9d761fed1df10b7528
 N
 lib/widgets/language_list.dart,4/d/4d5f463770869d6e4fd307ff973a138d8ae53964
->
-web/index.html,4/9/49767019a2fee22a613912508aa2789b74108680
 C
 assets/l10n/af.json,d/5/d561064bc56d00f90fac4be2dd98ed7db721b097
 C
@@ -170,8 +166,6 @@ L
 lib/l10n/strings_helper.dart,5/e/5ecb0cab281e78a60ef840d670f2fc6b1209d253
 _
 /lib/maps/cluster_maps/commuter_cluster_map.dart,9/e/9e056ef085ffe5fbbd8dc21b10ca032cb4ccf407
-G
-lib/blocs/fcm_bloc.dart,0/1/01232b5db0226a73836e529581a5214a8d107fa6
 E
 lib/l10n/my_keys.dart,1/b/1bc97497c84bf2179a04983aaa15a5f75ea3a892
 R
@@ -182,8 +176,6 @@ D
 Gemfile.lock,2/1/21fb5836b499a2be648386aac055d2e069160d6c
 7
 Gemfile,d/e/de3150c01c3a946a6168173c4116741379fe3579
-[
-+lib/maps/cluster_maps/live_cluster_map.dart,6/e/6ecaaad392143ebf59bd85e0af384f5db6c9a83f
 K
 lib/widgets/color_grid.dart,0/e/0e978b403944242a0a366d769a67d3cbd27a4ee3
 8

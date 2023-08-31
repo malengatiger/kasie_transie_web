@@ -9,7 +9,7 @@ import 'package:google_maps_cluster_manager/google_maps_cluster_manager.dart';
 import 'package:kasie_transie_web/data/route_bag.dart';
 import 'package:kasie_transie_web/maps/cluster_maps/toggle.dart';
 import 'package:kasie_transie_web/network.dart';
-import '../../blocs/fcm_bloc.dart';
+import '../../blocs/stream_bloc.dart';
 import '../../data/ambassador_passenger_count.dart';
 import '../../data/association_bag.dart';
 import '../../data/commuter_request.dart';
@@ -133,7 +133,7 @@ class DispatchAndCommuterRequestClusterMapState extends State<DispatchAndCommute
   void _listen() async {
     pp('\n\n$mm ... listening to FCM topics .......................... ');
 
-    dispatchSub = fcmBloc.dispatchStream.listen((event) async {
+    dispatchSub = streamBloc.dispatchStream.listen((event) async {
       pp('$mm ... dispatchStream delivered a dispatch record \t '
           '${E.appleGreen} ${event.vehicleReg} ${event.landmarkName} ${E.blueDot} date:  ${event.created}');
       dispatchRecordCovers.add(DispatchRecordCover(
@@ -145,7 +145,7 @@ class DispatchAndCommuterRequestClusterMapState extends State<DispatchAndCommute
         setState(() {});
       }
     });
-    requestSub = fcmBloc.commuterRequestStreamStream.listen((event) async {
+    requestSub = streamBloc.commuterRequestStreamStream.listen((event) async {
       pp('$mm ... commuterRequestStreamStream delivered a request \t ${E.appleRed} '
           '${event.routeLandmarkName} ${E.blueDot} date:  ${event.dateRequested}');
 
