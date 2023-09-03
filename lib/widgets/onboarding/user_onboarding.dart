@@ -52,7 +52,7 @@ class _UserOnboardingState extends State<UserOnboarding>
       users = await networkHandler.getAssociationUsers(
           associationId: deviceUser!.associationId!, refresh: refresh);
       users.sort((a,b) => a.name.compareTo(b.name));
-      pp('$mm ... users : ${users.length}');
+      pp('$mm ... association users : ${users.length}');
     } catch (e) {
       pp(e);
     }
@@ -70,10 +70,14 @@ class _UserOnboardingState extends State<UserOnboarding>
     return SafeArea(
         child: Scaffold(
       appBar: AppBar(
-        title: Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        title: Row(mainAxisAlignment: MainAxisAlignment.start,
           children: [
-            deviceUser == null? gapW32:Text('${deviceUser!.associationName}'),
-            Text('User Management'),
+            deviceUser == null? gapW32:Text('${deviceUser!.associationName}',
+            style: myTextStyleMediumLargeWithColor(context, getPrimaryColor(context), 14),),
+            gapW128, gapW32,
+            Text('User Management',
+              style: myTextStyleMediumLargeWithColor(context, getPrimaryColorLight(context), 24),),
+
           ],
         ),
         actions: [

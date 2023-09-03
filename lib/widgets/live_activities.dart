@@ -24,10 +24,11 @@ class LiveDisplay extends StatefulWidget {
       {super.key,
       required this.width,
       required this.cutoffDate,
-      required this.height});
+      required this.height, required this.backgroundColor});
 
   final double width, height;
   final DateTime cutoffDate;
+  final Color backgroundColor;
 
   @override
   State<LiveDisplay> createState() => _LiveDisplayState();
@@ -242,7 +243,7 @@ class _LiveDisplayState extends State<LiveDisplay> {
             : Card(
                 shape: getDefaultRoundedBorder(),
                 elevation: 4,
-                // color: Colors.black54,
+                color: widget.backgroundColor,
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: GridView.builder(

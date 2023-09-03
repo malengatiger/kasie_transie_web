@@ -8,6 +8,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:kasie_transie_web/data/association_counts.dart';
+import 'package:kasie_transie_web/data/example_file.dart';
 import 'package:kasie_transie_web/data/generation_request.dart';
 import 'package:kasie_transie_web/data/user.dart';
 import 'package:kasie_transie_web/data/vehicle.dart';
@@ -245,6 +246,21 @@ class NetworkHandler {
     return assBag;
   }
 
+  Future<List<ExampleFile>> getExampleFiles() async {
+    final token = await _getToken();
+    var list = <ExampleFile>[];
+    final url = '${KasieEnvironment.getUrl()}getExampleFiles';
+    List jList = await httpGet(url, token!);
+    jList.forEach((json) {
+      list.add(ExampleFile.fromJson(json));
+    });
+    pp('$xyz getExampleFiles: 🔆🔆🔆  ... found ${list.length}');
+    for (var value in list) {
+      myPrettyJsonPrint(value.toJson());
+    }
+    return list;
+  }
+
   Future<AssociationBag?> getAssociationBag(
       String associationId, String startDate, bool refresh) async {
     pp('$xyz ... getAssociationBag ...  ${E.heartRed}');
@@ -360,13 +376,13 @@ class NetworkHandler {
     pp('$xyz getAssociationHeartbeatTimeSeries: 🔆🔆🔆 get zipped data, bodyBytes: ${bodyBytes.length} bytes ...');
 
     final Archive archive = ZipDecoder().decodeBytes(bodyBytes);
-    // pp('$xyz ... do we have a file? ${archive.files.length} files in archive');
-    // pp('$xyz getAssociationHeartbeatTimeSeries: 🔆🔆🔆 handle file inside zip: ${archive.length} bytes');
+    pp('$xyz ... do we have a file? ${archive.files.length} files in archive');
+    pp('$xyz getAssociationHeartbeatTimeSeries: 🔆🔆🔆 handle file inside zip: ${archive.length} bytes');
 
     for (var file in archive.files) {
       if (file.isFile) {
-        // pp('$xyz getAssociationHeartbeatTimeSeries: file from inside archive ... ${file.size} '
-        //     'bytes 🔵 isCompressed: ${file.isCompressed} 🔵 zipped file name: ${file.name}');
+        pp('$xyz getAssociationHeartbeatTimeSeries: file from inside archive ... ${file.size} '
+            'bytes 🔵 isCompressed: ${file.isCompressed} 🔵 zipped file name: ${file.name}');
         final content = file.content;
         final x = utf8.decode(content);
         List mJson = jsonDecode(x);
@@ -378,10 +394,13 @@ class NetworkHandler {
         pp('$xyz getAssociationHeartbeatTimeSeries 🍎🍎🍎🍎 work is done!, elapsed seconds: '
             '🍎$ms 🍎time series done, found: ${list.length} \n\n');
         storageManager.addHeartbeatTimeSeries(list);
+      } else {
+        pp('$xyz getAssociationHeartbeatTimeSeries ${E.redDot} something gone wrong, Boss! '
+            '${E.redDot} file.isFile: ${file.isFile}');
       }
     }
 
-    pp('$xyz ...  found: ${list.length}');
+    pp('$xyz ... getAssociationHeartbeatTimeSeries found: ${list.length} aggregates');
     return list;
   }
 
@@ -449,40 +468,66 @@ class NetworkHandler {
   //   return cars;
   // }
   //
-  Future<List<RouteBag>> getRouteBags({required String associationId}) async {
+  Future<List<RouteBag>> getRouteBags(
+      {required String associationId, required bool refresh}) async {
     pp('$xyz _getRouteBag: 🔆🔆🔆 get zipped data ...');
 
-    var start = DateTime.now();
-    List<RouteBag> bags = [];
-    final token = await getAuthToken();
-    if (token == null) {
-      pp('$xyz token is null, quit! ${E.redDot}${E.redDot}${E.redDot}');
-      return [];
-    }
-    final mUrl = '${KasieEnvironment.getUrl()}'
-        'getAssociationRouteZippedFile?associationId=$associationId';
-
-    final bodyBytes = await _httpGetZippedData(mUrl, token);
-    pp('$xyz _getRouteBag: 🔆🔆🔆 get zipped data, bodyBytes: ${bodyBytes.length} bytes ...');
-
-    final Archive archive = ZipDecoder().decodeBytes(bodyBytes);
-    // pp('$xyz ... do we have a file? ${archive.files.length} files in archive');
-    // pp('$xyz _getRouteBag: 🔆🔆🔆 handle file inside zip: ${archive.length} bytes');
-
-    for (var file in archive.files) {
-      if (file.isFile) {
-        // pp('$xyz getRouteBags: file from inside archive ... ${file.size} '
-        //     'bytes 🔵 isCompressed: ${file.isCompressed} 🔵 zipped file name: ${file.name}');
-        final content = file.content;
-        final x = utf8.decode(content);
-        final mJson = jsonDecode(x);
-        final bagList = RouteBagList.fromJson(mJson);
-        var end = DateTime.now();
-        var ms = end.difference(start).inSeconds;
-        pp('$xyz _getRouteBag 🍎🍎🍎🍎 work is done!, elapsed seconds: 🍎$ms 🍎bags done: ${bags.length}\n\n');
-        storageManager.addRoutes(bagList.routeBags);
-        return bagList.routeBags;
+    if (refresh) {
+      var start = DateTime.now();
+      List<RouteBag> bags = [];
+      final token = await getAuthToken();
+      if (token == null) {
+        pp('$xyz token is null, quit! ${E.redDot}${E.redDot}${E.redDot}');
+        return [];
       }
+      final mUrl = '${KasieEnvironment.getUrl()}'
+          'getAssociationRouteZippedFile?associationId=$associationId';
+
+      final bodyBytes = await _httpGetZippedData(mUrl, token);
+      pp('$xyz _getRouteBag: 🔆🔆🔆 get zipped data, bodyBytes: ${bodyBytes.length} bytes ...');
+
+      final Archive archive = ZipDecoder().decodeBytes(bodyBytes);
+      // pp('$xyz ... do we have a file? ${archive.files.length} files in archive');
+      // pp('$xyz _getRouteBag: 🔆🔆🔆 handle file inside zip: ${archive.length} bytes');
+
+      for (var file in archive.files) {
+        if (file.isFile) {
+          // pp('$xyz getRouteBags: file from inside archive ... ${file.size} '
+          //     'bytes 🔵 isCompressed: ${file.isCompressed} 🔵 zipped file name: ${file.name}');
+          final content = file.content;
+          final x = utf8.decode(content);
+          final mJson = jsonDecode(x);
+          final bagList = RouteBagList.fromJson(mJson);
+          var end = DateTime.now();
+          var ms = end.difference(start).inSeconds;
+          pp('$xyz _getRouteBag 🍎🍎🍎🍎 work is done!, elapsed seconds: 🍎$ms 🍎bags done: ${bags.length}\n\n');
+          storageManager.addRoutes(bagList.routeBags);
+          return bagList.routeBags;
+        }
+      }
+    } else {
+      pp('$xyz ..getRouteBags - ....... build routeBags from local cache ...');
+      final rbList = <RouteBag>[];
+      final routeList = await storageManager.getRoutes();
+      for (var value in routeList) {
+        final points = await storageManager.getRoutePoints(value.routeId!);
+        final marks = await storageManager.getRouteLandmarks(value.routeId!);
+        final route = await storageManager.getRoute(value.routeId!);
+        final cities = await storageManager.getRouteCities(value.routeId!);
+
+        rbList.add(RouteBag(
+            route: route,
+            routeLandmarks: marks, routePoints: points,
+            routeCities: cities));
+      }
+      pp('$xyz ..getRouteBags - routeBags built '
+          'from local cache ${E.blueDot} ${rbList.length}');
+
+      if (rbList.isEmpty) {
+        return await getRouteBags(associationId: associationId, refresh: true);
+      }
+
+      return rbList;
     }
     throw Exception('Something went wrong');
   }
@@ -554,7 +599,6 @@ class NetworkHandler {
   }
 
   Future<List<User>> _getUsersFromBackend(String associationId) async {
-    var start = DateTime.now();
     List<User> users = [];
     final token = await getAuthToken();
     if (token == null) {
@@ -568,11 +612,12 @@ class NetworkHandler {
     res.forEach((element) {
       users.add(User.fromJson(element));
     });
+    await storageManager.addUsers(users);
     pp('$xyz getAssociationUsers: 🔆🔆🔆 found: ${users.length} bytes ...');
 
     return users;
-
   }
+
   Future httpGet(String mUrl, String token) async {
     pp('$xyz httpGet: 🔆 🔆 🔆 calling :\n 💙 $mUrl  💙');
     var start = DateTime.now();

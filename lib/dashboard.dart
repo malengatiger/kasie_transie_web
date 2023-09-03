@@ -15,16 +15,19 @@ import 'package:kasie_transie_web/utils/navigator_utils.dart';
 import 'package:kasie_transie_web/utils/prefs.dart';
 import 'package:kasie_transie_web/widgets/association_bag_widget.dart';
 import 'package:kasie_transie_web/widgets/charts/heartbeat_line_chart.dart';
+import 'package:kasie_transie_web/widgets/color_grid.dart';
 import 'package:kasie_transie_web/widgets/counts_widget.dart';
 import 'package:kasie_transie_web/widgets/dashboard_widgets/side_board.dart';
 import 'package:kasie_transie_web/widgets/days_drop_down.dart';
 import 'package:kasie_transie_web/widgets/demo_driver.dart';
+import 'package:kasie_transie_web/widgets/language_list.dart';
 import 'package:kasie_transie_web/widgets/live_activities.dart';
 import 'package:kasie_transie_web/widgets/onboarding/user_onboarding.dart';
 import 'package:kasie_transie_web/widgets/timer_widget.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import 'blocs/stream_bloc.dart';
+import 'blocs/theme_bloc.dart';
 import 'data/ambassador_passenger_count.dart';
 import 'data/commuter_request.dart';
 import 'data/dispatch_record.dart';
@@ -36,6 +39,7 @@ import 'data/vehicle_arrival.dart';
 import 'data/vehicle_departure.dart';
 import 'data/vehicle_heartbeat.dart';
 import 'data/vehicle_heartbeat_aggregation_result.dart';
+import 'l10n/strings_helper.dart';
 import 'l10n/translation_handler.dart';
 import 'maps/association_route_maps.dart';
 import 'maps/association_route_operations.dart';
@@ -67,7 +71,7 @@ class _AssociationDashboardState extends State<AssociationDashboard> {
       thisMayTakeMinutes,
       historyCars,
       dispatchesText;
-  int days = 1;
+  int days = 7;
 
   bool _showSettings = false;
   bool _showPassengerReport = false;
@@ -98,10 +102,15 @@ class _AssociationDashboardState extends State<AssociationDashboard> {
   String startEmailLinkSignin = 'Start Email Link Sign In';
   String signInWithPhone = 'Start Phone Sign In';
   late ColorAndLocale colorAndLocale;
-  List<AssociationHeartbeatAggregationResult> timeSeriesResults = [];
+  // List<AssociationHeartbeatAggregationResult> timeSeriesResults = [];
   AssociationBag? bag;
   List<VehicleHeartbeat> heartbeats = [];
   String date = DateTime.now().toUtc().subtract(Duration(days: 1)).toIso8601String();
+  bool _showColorSheet = false;
+  bool _showLanguage = false;
+  List<ColorFromTheme> colors = [];
+  List<LangBag> languageBags = [];
+  StringsHelper? stringsHelper;
 
   @override
   void initState() {
@@ -110,12 +119,32 @@ class _AssociationDashboardState extends State<AssociationDashboard> {
   }
 
   control() async {
+    stringsHelper = await StringsHelper.getTranslatedTexts();
     await _getTokenAndData();
     await _setTexts();
     _listen();
-    _getData(false);
+    _getColors();
+    _getData(true);
 
   }
+  void _getColors() async {
+    //todo - switch dark & light
+    setState(() {
+      busy = true;
+    });
+    try {
+      colors = SchemeUtil.getDarkThemeColors();
+      colorAndLocale = await prefs.getColorAndLocale();
+      colorFromTheme = SchemeUtil.getColorFromTheme(colorAndLocale);
+    } catch (e) {
+      pp(e);
+    }
+
+    setState(() {
+      busy = false;
+    });
+  }
+
   @override
   void dispose() {
     assocBagStreamSubscription.cancel();
@@ -342,19 +371,14 @@ class _AssociationDashboardState extends State<AssociationDashboard> {
   }
 
   Future<void> _handleData(bool refresh) async {
-    final date = DateTime.now().toUtc().subtract(Duration(days: days));
-    pp('$mm _handleData ............................ '
-        'getting association time series ...');
+    // final date = DateTime.now().toUtc().subtract(Duration(days: days));
+    // pp('$mm _handleData ............................ '
+    //     'getting association time series ...');
+    //
+    // cars = await networkHandler.getAssociationVehicles(
+    //     associationId: user!.associationId!, refresh: refresh);
 
-    timeSeriesResults = await networkHandler.getAssociationHeartbeatTimeSeries(
-        user!.associationId!, date.toIso8601String());
-    cars = await networkHandler.getAssociationVehicles(
-        associationId: user!.associationId!, refresh: refresh);
 
-    pp('$mm _handleData .. association 🔵🔵 timeSeries : '
-        '${E.appleRed} ${timeSeriesResults.length}');
-
-    setState(() {});
   }
 
   Future<void> _navigateToUserList() async {
@@ -364,7 +388,27 @@ class _AssociationDashboardState extends State<AssociationDashboard> {
         context);
     pp('$mm .... back from car list');
   }
+  ColorFromTheme? colorFromTheme;
+  void onColorChosen(ColorFromTheme colorFromTheme) async {
+    pp('$mm onColorChosen, index: ${colorFromTheme.themeIndex}');
+    colorAndLocale.themeIndex = colorFromTheme.themeIndex;
+    prefs.saveColorAndLocale(colorAndLocale);
+    themeBloc.changeColorAndLocale(colorAndLocale);
+    setState(() {
+      this.colorFromTheme = colorFromTheme;
+    });
+  }
 
+  void onLanguageChosen(LangBag langBag) async {
+    pp('$mm onLanguageChosen, index: ${langBag.language}');
+    colorAndLocale.locale = langBag.locale;
+    prefs.saveColorAndLocale(colorAndLocale);
+    themeBloc.changeColorAndLocale(colorAndLocale);
+    await _setTexts();
+    setState(() {
+      // _refresh = !_refresh;
+    });
+  }
 
   Future<void> _navigateToCarList() async {
     pp('$mm .... _navigateToCarList ..........');
@@ -393,12 +437,16 @@ class _AssociationDashboardState extends State<AssociationDashboard> {
       child: Scaffold(
           appBar: AppBar(
             title: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.start,
               children: [
+                gapW32,
+                user == null? gapW32: Text('${user!.associationName}',
+                style: myTextStyleMediumLargeWithColor(context, getPrimaryColor(context), 16),),
+                gapW128,
+                gapW32,
                 Text(
                   'Association Dashboard',
-                  style: myTextStyleMediumLarge(context, 18),
-                ),
+                  style: myTextStyleMediumLargeWithColor(context, getPrimaryColorLight(context), 24),),
                 gapW32,
                 gapW32,
                 Text(
@@ -426,7 +474,9 @@ class _AssociationDashboardState extends State<AssociationDashboard> {
             actions: [
               IconButton(
                   onPressed: () {
-                    _navigateToColor();
+                    setState(() {
+                      _showColorSheet = true;
+                    });
                   },
                   icon: Icon(
                     Icons.color_lens,
@@ -514,14 +564,15 @@ class _AssociationDashboardState extends State<AssociationDashboard> {
                               padding: const EdgeInsets.all(16.0),
                               child: SizedBox(
                                   height: 540,
-                                  child: const AssociationHeartbeatChart(
+                                  child: AssociationHeartbeatChart(numberOfDays: days,
                                   )),
                             ),
                           ),
                           gapH32,
                           gapH32,
                           LiveDisplay(
-                              width: 840, height: 160, cutoffDate: cutoffDate),
+                              width: 840, height: 160, cutoffDate: cutoffDate,
+                            backgroundColor: Colors.black54,),
                         ],
                       ),
                     ),
@@ -538,11 +589,41 @@ class _AssociationDashboardState extends State<AssociationDashboard> {
                         arrivals: arrivalsText!,
                         departures: departuresText!,
                         heartbeats: heartbeatText!,
-                        lastUpdated: DateTime.now().toIso8601String(),
-                        date: date),
+                        lastUpdated: cutoffDate.toIso8601String(),
+                        date: cutoffDate.toIso8601String()),
                   ),
                 ],
               ),
+              _showColorSheet
+                  ? Positioned(
+                  right: 12,
+                  top: 12,
+                  child: ColorGrid(
+                    colors: colors,
+                    onColorChosen: (clr) {
+                      onColorChosen(clr);
+                    },
+                    onClose: () {
+                      setState(() {
+                        _showColorSheet = false;
+                      });
+                    },
+                    changeColor: stringsHelper!.changeColor,
+                  ))
+                  : gapW8,
+              _showLanguage
+                  ? Positioned(
+                  right: 12,
+                  top: 12,
+                  child: LanguageList(onClose: () {
+                    setState(() {
+                      _showLanguage = false;
+                    });
+                  }, onLanguageChosen: (lang) {
+                    pp('$mm language chosen: $lang');
+                    onLanguageChosen(lang);
+                  }))
+                  : gapW32,
               busy? Positioned(child: Center(child: TimerWidget(title: 'Loading data ...'))): gapW32,
             ],
           )),

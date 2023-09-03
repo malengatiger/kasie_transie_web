@@ -51,7 +51,7 @@ class UserList extends StatelessWidget {
                           Text('${user.name}', style: myTextStyleMediumLargeWithColor(context, getPrimaryColorLight(context),
                               18),),
                           gapW32,
-                          Text('${user.cellphone}'),
+                          Text('${user.cellphone}', style: myTextStyleTiny(context),),
                         ],
                       ),
                       subtitle: Padding(

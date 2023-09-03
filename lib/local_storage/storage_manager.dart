@@ -1,6 +1,7 @@
 // import 'package:isar/isar.dart';
 import 'package:kasie_transie_web/data/ambassador_passenger_count.dart';
 import 'package:kasie_transie_web/data/commuter_request.dart';
+import 'package:kasie_transie_web/data/route_city.dart';
 import 'package:kasie_transie_web/data/route_landmark.dart';
 import 'package:kasie_transie_web/data/route_point.dart';
 import 'package:kasie_transie_web/data/user.dart';
@@ -30,14 +31,14 @@ class StorageManager {
   final routeCityStore = stringMapStoreFactory.store('routeCityStore');
   final arrivalStore = stringMapStoreFactory.store('arrivalStore');
   final departureStore = stringMapStoreFactory.store('departureStore');
-  final commuterRequestStore = stringMapStoreFactory.store('commuterRequestStore');
+  final commuterRequestStore =
+      stringMapStoreFactory.store('commuterRequestStore');
   final heartbeatStore = stringMapStoreFactory.store('heartbeatStore');
   final dispatchStore = stringMapStoreFactory.store('dispatchStore');
   final passengerStore = stringMapStoreFactory.store('passengerStore');
   final timeSeriesStore = stringMapStoreFactory.store('timeSeriesStore');
   final carStore = stringMapStoreFactory.store('carStore');
   final userStore = stringMapStoreFactory.store('userStore');
-
 
   final factory = databaseFactoryWeb;
 
@@ -72,304 +73,227 @@ class StorageManager {
   }
 
   Future<Route?> getRoute(String routeId) async {
-    var value = await routeStore.record(routeId).get(db);
-    if (value != null) {
-      if (value.isNotEmpty) {
-        final x = value.values.first;
-        var r = Route.fromJson(x as Map<String, dynamic>);
-        return r;
-      }
+    final finder = Finder(
+      filter: Filter.greaterThanOrEquals('routeId', routeId),
+      sortOrders: [SortOrder('routeId')],
+    );
+    final records = await routeStore.find(db, finder: finder);
+    final list = records
+        .map((record) => Route.fromJson(record.value))
+        .toList();
+    pp('$mm ... getRoute found: ${list.length} routes');
+    if (list.isNotEmpty) {
+      return list.first;
     }
     return null;
   }
 
   Future<List<Route>> getRoutes() async {
-    var list = <Route>[];
-    final snapshots = await routeStore.find(db);
-    for (var snap in snapshots) {
-      list.add(Route.fromJson(snap.value));
-    }
-    pp('$mm ... getRoutes found: ${list.length} ...');
+    final finder = Finder(sortOrders: [SortOrder('name')]);
+    final records = await routeStore.find(db, finder: finder);
+
+    final list = records.map((record) => Route.fromJson(record.value)).toList();
+    pp('$mm ... getRoutes found: ${list.length}');
     return list;
   }
 
   Future<List<Vehicle>> getCars() async {
-    var list = <Vehicle>[];
-    final snapshots = await carStore.find(db);
-    for (var snap in snapshots.toList()) {
-      list.add(Vehicle.fromJson(snap.value));
-    }
-    pp('$mm ... Vehicles found in cache: ${list.length} ...');
-    return list;
-  }
-  Future<List<User>> getUsers() async {
-    var list = <User>[];
-    final snapshots = await userStore.find(db);
-    for (var snap in snapshots.toList()) {
-      list.add(User.fromJson(snap.value));
-    }
-    pp('$mm ... Users found in cache: ${list.length} ...');
-    return list;
-  }
-  Future<List<VehicleArrival>> getArrivals(String startDate) async {
-    var list = <VehicleArrival>[];
-    final snapshots =  await arrivalStore.find(db,
-        finder:
-            Finder(filter: Filter.greaterThanOrEquals('created', startDate)));
+    final finder = Finder(sortOrders: [SortOrder('name')]);
+    final records = await carStore.find(db, finder: finder);
 
-    for (var snap in snapshots) {
-      list.add(VehicleArrival.fromJson(snap.value));
-    }
-    pp('$mm ... VehicleArrivals found in cache: ${list.length} ... startDate: $startDate');
+    final list =
+        records.map((record) => Vehicle.fromJson(record.value)).toList();
+    pp('$mm ... getCars found: ${list.length}');
+    return list;
+  }
+
+  Future<List<User>> getUsers() async {
+    final finder = Finder(sortOrders: [SortOrder('name')]);
+    final records = await userStore.find(db, finder: finder);
+
+    final list = records.map((record) => User.fromJson(record.value)).toList();
+    pp('$mm ... getUsers found: ${list.length}');
+    return list;
+  }
+
+  Future<List<VehicleArrival>> getArrivals(String startDate) async {
+    final finder = Finder(
+      filter: Filter.greaterThanOrEquals('created', startDate),
+      sortOrders: [SortOrder('created')],
+    );
+    final records = await arrivalStore.find(db, finder: finder);
+    final list =
+        records.map((record) => VehicleArrival.fromJson(record.value)).toList();
+    pp('$mm ... getArrivals found: ${list.length}');
     return list;
   }
 
   Future<List<VehicleDeparture>> getDepartures(String startDate) async {
-    var list = <VehicleDeparture>[];
-    final snapshots = await departureStore.find(db,
-        finder:
-            Finder(filter: Filter.greaterThanOrEquals('created', startDate)));
-
-    for (var snap in snapshots) {
-      list.add(VehicleDeparture.fromJson(snap.value));
-    }
-    pp('$mm ... VehicleDepartures found in cache: ${list.length} ... startDate: $startDate');
+    final finder = Finder(
+      filter: Filter.greaterThanOrEquals('created', startDate),
+      sortOrders: [SortOrder('created')],
+    );
+    final records = await arrivalStore.find(db, finder: finder);
+    final list = records
+        .map((record) => VehicleDeparture.fromJson(record.value))
+        .toList();
+    pp('$mm ... getDepartures found: ${list.length}');
     return list;
   }
 
   Future<List<DispatchRecord>> getDispatches(String startDate) async {
-    var list = <DispatchRecord>[];
-    final snapshots = await dispatchStore.find(db,
-        finder:
-            Finder(filter: Filter.greaterThanOrEquals('created', startDate)));
-
-    for (var snap in snapshots) {
-      list.add(DispatchRecord.fromJson(snap.value));
-    }
-    pp('$mm ... DispatchRecords found in cache: ${list.length} ... startDate: $startDate');
+    final finder = Finder(
+      filter: Filter.greaterThanOrEquals('created', startDate),
+      sortOrders: [SortOrder('created')],
+    );
+    final records = await dispatchStore.find(db, finder: finder);
+    final list =
+        records.map((record) => DispatchRecord.fromJson(record.value)).toList();
+    pp('$mm ... getDispatches found: ${list.length}');
     return list;
   }
 
   Future<List<VehicleHeartbeat>> getHeartbeats(String startDate) async {
-    var list = <VehicleHeartbeat>[];
-    final snapshots = await heartbeatStore.find(db,
-        finder:
-            Finder(filter: Filter.greaterThanOrEquals('created', startDate)));
-
-    for (var snap in snapshots) {
-      list.add(VehicleHeartbeat.fromJson(snap.value));
-    }
-    pp('$mm ... VehicleHeartbeat found in cache: ${list.length} ... startDate: $startDate');
+    final finder = Finder(
+      filter: Filter.greaterThanOrEquals('created', startDate),
+      sortOrders: [SortOrder('created')],
+    );
+    final records = await heartbeatStore.find(db, finder: finder);
+    final list = records
+        .map((record) => VehicleHeartbeat.fromJson(record.value))
+        .toList();
+    pp('$mm ... getVehicleHeartbeats found: ${list.length}');
     return list;
   }
 
   Future<List<AmbassadorPassengerCount>> getPassengerCounts(
       String startDate) async {
-    var list = <AmbassadorPassengerCount>[];
-    final snapshots = await passengerStore.find(db,
-        finder:
-            Finder(filter: Filter.greaterThanOrEquals('created', startDate)));
-
-    for (var snap in snapshots) {
-      list.add(AmbassadorPassengerCount.fromJson(snap.value));
-    }
-    pp('$mm ... AmbassadorPassengerCounts found in cache: ${list.length} ... startDate: $startDate');
+    final finder = Finder(
+      filter: Filter.greaterThanOrEquals('created', startDate),
+      sortOrders: [SortOrder('created')],
+    );
+    final records = await passengerStore.find(db, finder: finder);
+    final list = records
+        .map((record) => AmbassadorPassengerCount.fromJson(record.value))
+        .toList();
+    pp('$mm ... getPassengerCounts found: ${list.length}');
     return list;
   }
 
   Future<List<CommuterRequest>> getCommuterRequests(String startDate) async {
-    var list = <CommuterRequest>[];
-    final snapshots = await commuterRequestStore.find(db,
-        finder: Finder(
-            filter: Filter.greaterThanOrEquals('dateRequested', startDate)));
-
-    for (var snap in snapshots) {
-      list.add(CommuterRequest.fromJson(snap.value));
-    }
-    pp('$mm ... CommuterRequest found in cache: ${list.length} ... startDate: $startDate');
+    final finder = Finder(
+      filter: Filter.greaterThanOrEquals('dateRequested', startDate),
+      sortOrders: [SortOrder('dateRequested')],
+    );
+    final records = await commuterRequestStore.find(db, finder: finder);
+    final list = records
+        .map((record) => CommuterRequest.fromJson(record.value))
+        .toList();
+    pp('$mm ... getCommuterRequests found: ${list.length}');
     return list;
   }
 
   Future<List<RouteLandmark>> getRouteLandmarks(String routeId) async {
-    var list = <RouteLandmark>[];
-    final snapshots = await routeLandmarkStore.find(db,
-        finder: Finder(filter: Filter.equals('routeId', routeId)));
-
-    for (var snap in snapshots) {
-      list.add(RouteLandmark.fromJson(snap.value));
-    }
-    pp('$mm ... getRouteLandmarks found: ${list.length} ... for routeId: $routeId');
+    final finder = Finder(
+      filter: Filter.equals('routeId', routeId),
+      sortOrders: [SortOrder('index')],
+    );
+    final records = await routeLandmarkStore.find(db, finder: finder);
+    final list =
+        records.map((record) => RouteLandmark.fromJson(record.value)).toList();
+    pp('$mm ... getRouteLandmarks found: ${list.length}');
+    return list;
+  }
+  Future<List<RouteCity>> getRouteCities(String routeId) async {
+    final finder = Finder(
+      filter: Filter.equals('routeId', routeId),
+      sortOrders: [SortOrder('cityName')],
+    );
+    final records = await routeCityStore.find(db, finder: finder);
+    final list =
+    records.map((record) => RouteCity.fromJson(record.value)).toList();
+    pp('$mm ... getRouteCities found: ${list.length}');
     return list;
   }
 
   Future<List<RoutePoint>> getRoutePoints(String routeId) async {
-    var list = <RoutePoint>[];
-    final snapshots = await routePointStore.find(db,
-        finder: Finder(filter: Filter.equals('routeId', routeId)));
-
-    for (var snap in snapshots) {
-      list.add(RoutePoint.fromJson(snap.value));
-    }
-    pp('$mm ... getRoutePoints found: ${list.length} ... for routeId: $routeId');
+    final finder = Finder(
+      filter: Filter.equals('routeId', routeId),
+      sortOrders: [SortOrder('index')],
+    );
+    final records = await routePointStore.find(db, finder: finder);
+    final list =
+        records.map((record) => RoutePoint.fromJson(record.value)).toList();
+    pp('$mm ... getRoutePoints found: ${list.length}');
     return list;
   }
 
+  //
+
   Future addRoutes(List<RouteBag> bags) async {
-    pp('$mm ... ${bags.length} routes to cache ..... : ${E.blueDot}${E.blueDot}${E.blueDot}');
+    pp('$mm ... add ${bags.length} routes to cache ..... : '
+        '${E.blueDot}${E.blueDot}${E.blueDot}');
 
     for (var bag in bags) {
-      final res = await routeStore
-          .record(bag.route!.routeId!)
-          .update(db, bag.route!.toJson());
-      int cnt = 0;
-      if (res == null) {
-        final res = await carStore
-            .record(bag.route!.routeId!)
-            .add(db, bag.route!.toJson());
-        if (res != null) {
-          cnt++;
-        }
-      } else {
-        cnt++;
-      }
-      final tot = await getRoutes();
-      pp('$mm ... route: ${bag.route!.name} ${E.appleRed} ${E.appleRed} '
-          'cached  $cnt total in store : ${tot.length} ');
-
+      final record = await routeStore.record(bag.route!.routeId!);
+      await record.put(db, bag.route!.toJson());
       //add landmarks ...
-      cnt = 0;
       bag.routeLandmarks.forEach((landmark) async {
-        final res = await routeLandmarkStore
-            .record(landmark.landmarkId!)
-            .update(db, landmark.toJson());
-        if (res == null) {
-          final res2 = await routeLandmarkStore
-              .record(landmark.landmarkId!)
-              .add(db, landmark.toJson());
-          if (res2 != null) {
-            cnt++;
-          }
-        } else {
-          cnt++;
-        }
+        final rec = await routeLandmarkStore.record(landmark.landmarkId!);
+        await rec.put(db, landmark.toJson());
       });
-
-      try {
-        final tot1 = await getRouteLandmarks(bag.routeLandmarks.first.routeId!);
-        pp('$mm ... ${bag.route!.name} ${E.appleRed} ${E.appleRed} cached $cnt route landmarks: '
-                  '${E.blueDot} $cnt total in store : ${tot1.length}');
-      } catch (e) {
-        pp(e);
-      }
-
       //add points ...
-
-      cnt = 0;
       bag.routePoints.forEach((routePoint) async {
-        final res = await routePointStore
-            .record(routePoint.routePointId!)
-            .update(db, routePoint.toJson());
-        if (res == null) {
-          final res2 = await routePointStore
-              .record(routePoint.routePointId!)
-              .add(db, routePoint.toJson());
-          if (res2 != null) {
-            cnt++;
-          }
-        } else {
-          cnt++;
-        }
+        final res2 = await routePointStore.record(routePoint.routePointId!);
+        await res2.put(db, routePoint.toJson());
       });
-      try {
-        final tot2 = await getRoutePoints(bag.routePoints.first.routeId!);
-        pp('$mm ... ${bag.route!.name} ${E.appleRed} ${E.appleRed} cached route points: '
-                  '${E.blueDot} $cnt total in store : ${tot2.length}');
-      } catch (e) {
-        pp(e);
-      }
-
       //add cities ...
-
-      cnt = 0;
       bag.routeCities.forEach((city) async {
-        final res = await routeCityStore
-            .record('${city.routeId!}_${city.cityId!}')
-            .update(db, city.toJson());
-        if (res == null) {
-          final res2 = await routeCityStore
-              .record('${city.routeId!}_${city.cityId!}')
-              .add(db, city.toJson());
-          if (res2 != null) {
-            cnt++;
-          }
-        } else {
-          cnt++;
-        }
+        final res2 =
+            await routeCityStore.record('${city.routeId!}_${city.cityId!}');
+        await res2.put(db, city.toJson());
       });
-
-      final tot3 = await routeCityStore.count(db);
-      pp('$mm ... ${bag.route!.name} ${E.appleRed} ${E.appleRed} '
-          'cached  $cnt  route cities: ${E.blueDot} $cnt total in store from count(db) : $tot3');
     }
+    final tot0 = await routeStore.count(db);
+    pp('$mm ...  ${E.appleRed} ${E.appleRed} '
+        'cached routes: ${E.blueDot} total in store from count(db) : $tot0');
+    final tot1 = await routeLandmarkStore.count(db);
+    pp('$mm ...  ${E.appleRed} ${E.appleRed} '
+        'cached route landmarks: ${E.blueDot} total in store from count(db) : $tot1');
+    final tot2 = await routePointStore.count(db);
+    pp('$mm ... ${E.appleRed} ${E.appleRed} '
+        'cached route points: ${E.blueDot} total in store from count(db) : $tot2');
+    final tot3 = await routeCityStore.count(db);
+    pp('$mm ... ${E.appleRed} ${E.appleRed} '
+        'cached route cities: ${E.blueDot} total in store from count(db) : $tot3');
   }
 
   Future addPassengerCounts(
       List<AmbassadorPassengerCount> passengerCounts) async {
     pp('$mm ... addPassengerCounts : ${passengerCounts.length}');
-    int cnt = 0;
     for (var value in passengerCounts) {
-      try {
-        final key = await passengerStore
-            .record(value.passengerCountId!)
-            .update(db, value.toJson());
-        if (key == null) {
-          final key2 = await passengerStore
-              .record(value.passengerCountId!)
-              .add(db, value.toJson());
-          if (key2 != null) {
-            cnt++;
-          }
-        } else {
-          cnt++;
-        }
-      } catch (e) {
-        pp('$mm ... do we fall down here, Joe?');
-        pp(e);
-      }
+      final key2 = await passengerStore.record(value.passengerCountId!);
+      await key2.put(db, value.toJson());
     }
     try {
-      pp('$mm ... addPassengerCounts: do we get here, Michelle? ${E.heartBlue}');
-      final startDate = DateTime.now().toUtc().subtract(Duration(days: 1)).toIso8601String();
-      final tot4 = await getPassengerCounts(startDate);
-
-      pp('$mm ... AmbassadorPassengerCount ${E.appleRed} ${E.appleRed} ${E.appleRed} cached'
-              ' $cnt total in store : ${tot4.length}');
+      final tot3 = await passengerStore.count(db);
+      pp('$mm ... ${E.appleRed} ${E.appleRed} '
+          'cached passengerCounts: ${E.blueDot} total in store from count(db) : $tot3');
     } catch (e) {
-      print(e);
+      pp(e);
     }
   }
 
   Future addHeartbeats(List<VehicleHeartbeat> heartbeats) async {
     pp('$mm ... addHeartbeats : ${heartbeats.length}');
-    var cnt = 0;
     for (var value in heartbeats) {
-      final key = await heartbeatStore
-          .record(value.vehicleHeartbeatId!)
-          .update(db, value.toJson());
-      if (key == null) {
-        final key2 = await heartbeatStore
-            .record(value.vehicleHeartbeatId!)
-            .add(db, value.toJson());
-        if (key2 != null) {
-          cnt++;
-        }
-      }
+      final key2 = await heartbeatStore.record(value.vehicleHeartbeatId!);
+      await key2.put(db, value.toJson());
     }
     try {
-      final startDate = DateTime.now().toUtc().subtract(Duration(days: 1)).toIso8601String();
-      final tot5 = await getHeartbeats(startDate);
-      pp('$mm ... VehicleHeartbeats ${E.appleRed} ${E.appleRed} '
-          'cached $cnt total in store : ${tot5.length}');
+      final tot3 = await heartbeatStore.count(db);
+      pp('$mm ... ${E.appleRed} ${E.appleRed} '
+          'cached heartbeats: ${E.blueDot} total in store from count(db) : $tot3');
     } catch (e) {
       pp(e);
     }
@@ -378,49 +302,26 @@ class StorageManager {
   Future addHeartbeatTimeSeries(
       List<AssociationHeartbeatAggregationResult> results) async {
     pp('$mm ... addHeartbeatTimeSeries : ${results.length}');
-    var cnt = 0;
     for (var value in results) {
-      final key =
-          await timeSeriesStore.record(value.key).update(db, value.toJson());
-      if (key == null) {
-        final key2 =
-            await timeSeriesStore.record(value.key).add(db, value.toJson());
-        if (key2 != null) {
-          cnt++;
-        }
-      } else {
-        cnt++;
-      }
+      final key2 = await timeSeriesStore.record(value.key);
+      await key2.put(db, value.toJson());
     }
     final tot6 = await timeSeriesStore.count(db);
     pp('$mm ... AssociationHeartbeatAggregationResults ${E.appleRed} ${E.appleRed} '
-        'cached $cnt total in store (used count(db) : $tot6');
+        'cached aggregates total in store (used count(db) : $tot6');
   }
 
   Future addCommuterRequest(List<CommuterRequest> requests) async {
     pp('$mm ... addCommuterRequest : ${requests.length}');
-    var cnt = 0;
 
     for (var value in requests) {
-      final key = await commuterRequestStore
-          .record(value.commuterRequestId!)
-          .update(db, value.toJson());
-      if (key == null) {
-        final key2 = await commuterRequestStore
-            .record(value.commuterRequestId!)
-            .add(db, value.toJson());
-        if (key2 != null) {
-          cnt++;
-        }
-      } else {
-        cnt++;
-      }
+      final key2 = await commuterRequestStore.record(value.commuterRequestId!);
+      await key2.put(db, value.toJson());
     }
     try {
-      final startDate = DateTime.now().toUtc().subtract(Duration(days: 1)).toIso8601String();
-      final tot = await getCommuterRequests(startDate);
-      pp('$mm ... CommuterRequests ${E.appleRed} ${E.appleRed} cached '
-          '$cnt total in store : ${tot.length}');
+      final tot3 = await commuterRequestStore.count(db);
+      pp('$mm ... ${E.appleRed} ${E.appleRed} '
+          'cached CommuterRequests: ${E.blueDot} total in store from count(db) : $tot3');
     } catch (e) {
       pp(e);
     }
@@ -428,27 +329,15 @@ class StorageManager {
 
   Future addDispatches(List<DispatchRecord> dispatches) async {
     pp('$mm ... addDispatches : ${dispatches.length}');
-    var cnt = 0;
 
     for (var value in dispatches) {
-      final key = await dispatchStore
-          .record(value.dispatchRecordId!)
-          .update(db, value.toJson());
-      if (key == null) {
-        final key2 = await dispatchStore
-            .record(value.dispatchRecordId!)
-            .add(db, value.toJson());
-        if (key2 != null) {
-          cnt++;
-        }
-      } else {
-        cnt++;
-      }
+      final key2 = await dispatchStore.record(value.dispatchRecordId!);
+      await key2.put(db, value.toJson());
     }
     try {
-      final startDate = DateTime.now().toUtc().subtract(Duration(days: 1)).toIso8601String();
-      final tot = await getDispatches(startDate);
-      pp('$mm ... Dispatches ${E.appleRed} ${E.appleRed} cached  $cnt total in store : ${tot.length}');
+      final tot3 = await dispatchStore.count(db);
+      pp('$mm ... ${E.appleRed} ${E.appleRed} '
+          'cached  dispatches: ${E.blueDot} total in store from count(db) : $tot3');
     } catch (e) {
       pp(e);
     }
@@ -456,27 +345,15 @@ class StorageManager {
 
   Future addArrivals(List<VehicleArrival> arrivals) async {
     pp('$mm ... addArrivals : ${arrivals.length}');
-    var cnt = 0;
 
     for (var value in arrivals) {
-      final key = await arrivalStore
-          .record(value.vehicleArrivalId!)
-          .update(db, value.toJson());
-      if (key == null) {
-        final key2 = await arrivalStore
-            .record(value.vehicleArrivalId!)
-            .add(db, value.toJson());
-        if (key2 != null) {
-          cnt++;
-        }
-      } else {
-        cnt++;
-      }
+      final key2 = await arrivalStore.record(value.vehicleArrivalId!);
+      await key2.put(db, value.toJson());
     }
     try {
-      final startDate = DateTime.now().toUtc().subtract(Duration(days: 1)).toIso8601String();
-      final tot = await getArrivals(startDate);
-      pp('$mm ... Arrivals ${E.appleRed} ${E.appleRed} cached$cnt total in store : ${tot.length}');
+      final tot3 = await arrivalStore.count(db);
+      pp('$mm ... ${E.appleRed} ${E.appleRed} '
+          'cached  arrivals: ${E.blueDot} total in store from count(db) : $tot3');
     } catch (e) {
       pp(e);
     }
@@ -484,26 +361,14 @@ class StorageManager {
 
   Future addDepartures(List<VehicleDeparture> departures) async {
     pp('$mm ... addVehicleDepartures : ${departures.length}');
-    var cnt = 0;
     for (var value in departures) {
-      final key = await departureStore
-          .record(value.vehicleDepartureId!)
-          .update(db, value.toJson());
-      if (key == null) {
-        final key2 = await departureStore
-            .record(value.vehicleDepartureId!)
-            .add(db, value.toJson());
-        if (key2 != null) {
-          cnt++;
-        }
-      } else {
-        cnt++;
-      }
+      final key2 = await departureStore.record(value.vehicleDepartureId!);
+      await key2.put(db, value.toJson());
     }
     try {
-      final startDate = DateTime.now().toUtc().subtract(Duration(days: 1)).toIso8601String();
-      final tot = await getDepartures(startDate);
-      pp('$mm ... VehicleDepartures ${E.appleRed} ${E.appleRed} cached  $cnt total in store : ${tot.length}');
+      final tot3 = await departureStore.count(db);
+      pp('$mm ... ${E.appleRed} ${E.appleRed} '
+          'cached  departures: ${E.blueDot} total in store from count(db) : $tot3');
     } catch (e) {
       pp(e);
     }
@@ -511,25 +376,14 @@ class StorageManager {
 
   Future addUsers(List<User> users) async {
     pp('$mm ... addUsers : ${users.length}');
-    var cnt = 0;
     for (var value in users) {
-      final key = await userStore
-          .record(value.userId!)
-          .update(db, value.toJson());
-      if (key == null) {
-        final key2 = await userStore
-            .record(value.userId!)
-            .add(db, value.toJson());
-        if (key2 != null) {
-          cnt++;
-        }
-      } else {
-        cnt++;
-      }
+      final key2 = await userStore.record(value.userId!);
+      await key2.put(db, value.toJson());
     }
     try {
-      final tot = await getUsers();
-      pp('$mm ... Users ${E.appleRed} ${E.appleRed} cached  $cnt total in store : ${tot.length}');
+      final tot3 = await userStore.count(db);
+      pp('$mm ... ${E.appleRed} ${E.appleRed} '
+          'cached users: ${E.blueDot} total in store from count(db) : $tot3');
     } catch (e) {
       pp(e);
     }

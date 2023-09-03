@@ -1,10 +1,16 @@
+import 'dart:html' as html;
+
+import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:kasie_transie_web/data/user.dart';
+import 'package:kasie_transie_web/network.dart';
 import 'package:kasie_transie_web/utils/prefs.dart';
+import 'package:kasie_transie_web/widgets/timer_widget.dart';
+
+import '../../data/example_file.dart';
+import '../../utils/emojis.dart';
 import '../../utils/functions.dart';
-import 'dart:html' as html;
 
 class FileExamples extends StatefulWidget {
   const FileExamples({Key? key}) : super(key: key);
@@ -32,11 +38,13 @@ class _FileExamplesState extends State<FileExamples>
   String? csvStringUsers, jsonStringUsers;
 
   User? user;
+
   Future _getFiles() async {
     setState(() {
       busy = true;
     });
     try {
+      await _getExamples();
       user = await prefs.getUser();
       csvStringUsers = await rootBundle.loadString('assets/files/users.csv');
       csvStringCars = await rootBundle.loadString('assets/files/vehicles.csv');
@@ -65,13 +73,80 @@ class _FileExamplesState extends State<FileExamples>
     super.dispose();
   }
 
-  void _downloadExamples(String fileName) async {
-    final anchor = html.AnchorElement(href: 'assets/files/$fileName')
-      ..target = 'a_target_name'
-      ..download = fileName
-      ..click();
+  var exampleList = <ExampleFile>[];
 
-    pp('should be downloading $fileName .... anchor origin: ${anchor.origin}');
+  Future _getExamples() async {
+    setState(() {
+      busy = true;
+    });
+    try {
+      exampleList = await networkHandler.getExampleFiles();
+      exampleList.sort((a, b) => a.fileName!.compareTo(b.fileName!));
+      for (var value in exampleList) {
+        pp('$mm ... example file aboard: ${E.leaf} ${value.fileName}');
+      }
+    } catch (e) {
+      pp(e);
+    }
+    setState(() {
+      busy = false;
+    });
+  }
+
+  void _downloadUserCSVExample() async {
+    final fileName = exampleList[0].fileName;
+    final url = exampleList[0].downloadUrl;
+    final anchor = html.AnchorElement(href: url!)
+      ..target = 'a_target_name'
+      ..download = exampleList[0].fileName;
+
+    anchor.click();
+    pp('should be downloading .... anchor origin: ${anchor.origin} '
+        '- ${E.redDot} file: $fileName}');
+  }
+
+  void _downloadUserJSONExample() async {
+    final fileName = exampleList[1].fileName;
+    final url = exampleList[1].downloadUrl;
+    final anchor = html.AnchorElement(href: url)
+      ..target = 'a_target_name'
+      ..download = fileName;
+
+    if (fileName!.endsWith('.json')) {
+      anchor.setAttribute('data-content-disposition', 'attachment; filename=$fileName');
+    }
+
+    anchor.click();
+    pp('should be downloading .... anchor origin: ${anchor.origin} '
+        '- ${E.redDot} file: ${exampleList[1].fileName}');
+  }
+
+  void _downloadVehicleCSVExample() async {
+    final anchor = html.AnchorElement(href: exampleList[2].downloadUrl)
+      ..target = 'a_target_name'
+      ..download = exampleList[2].fileName;
+
+    anchor.click();
+    pp('should be downloading .... anchor origin: ${anchor.origin} '
+        '- ${E.redDot} file: ${exampleList[2].fileName}');
+  }
+
+  void _downloadVehicleJSONExample() async {
+    final fileName = exampleList[3].fileName;
+    final url = exampleList[3].downloadUrl;
+    final anchor = html.AnchorElement(href:url)
+      ..target = 'a_target_name'
+      ..download = fileName;
+
+    // Set the Content-Disposition header based on the file type
+    if (fileName!.endsWith('.json')) {
+      anchor.setAttribute('data-content-disposition', 'attachment; filename=$fileName');
+    }
+
+    anchor.click();
+
+    pp('should be downloading .... anchor origin: ${anchor.origin} '
+        '- ${E.redDot} file: ${exampleList[3].fileName}');
   }
 
   @override
@@ -100,20 +175,23 @@ class _FileExamplesState extends State<FileExamples>
             ),
           ],
         ),
-        bottom: PreferredSize(preferredSize: Size.fromHeight(20), child: Column(
-          children: [
-            Text('You can use either one of the 2 types to upload your users and your vehicle',
-            style: myTextStyleSmall(context),)
-          ],
-        )),
-
+        bottom: PreferredSize(
+            preferredSize: Size.fromHeight(20),
+            child: Column(
+              children: [
+                Text(
+                  'You can use either one of the 2 types to upload your users and your vehicles. ${E.leaf2} Save a bit of time!',
+                  style: myTextStyleSmall(context),
+                )
+              ],
+            )),
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 64, vertical: 28.0),
-        child: Row(
+        child: busy? Center(child: TimerWidget(title: 'Loading Examples')): Row(
           children: [
             SizedBox(
-              width: (width / 2) - 64,
+              width: (width / 2) - 100,
               child: Card(
                 shape: getDefaultRoundedBorder(),
                 elevation: 12,
@@ -122,51 +200,59 @@ class _FileExamplesState extends State<FileExamples>
                   child: ListView(
                     children: [
                       gapH32,
-                      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
                             'User File Examples: .csv type',
                             style: myTextStyleMediumLargeWithColor(
                                 context, getPrimaryColor(context), 20),
                           ),
+                          gapW32,
+                          gapW32,
                           IconButton(
                               tooltip: 'Download users.csv',
                               onPressed: () {
-                                _downloadExamples('users.csv');
+                                _downloadUserCSVExample();
                               },
                               icon: Icon(
                                 Icons.download,
-                                size: 24, color: Colors.blue,
+                                size: 24,
+                                color: Colors.blue,
                               ))
                         ],
                       ),
                       gapH32,
                       csvStringUsers == null
                           ? gapW32
-                          : ExampleFile(text: csvStringUsers!),
+                          : ExampleFileWidget(text: csvStringUsers!),
                       gapH32,
-                      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
                             'Vehicle File Example : .csv type',
                             style: myTextStyleMediumLargeWithColor(
                                 context, getPrimaryColor(context), 20),
                           ),
+                          gapW32,
+                          gapW32,
                           IconButton(
                               tooltip: 'Download vehicles.csv',
                               onPressed: () {
-                                _downloadExamples('vehicles.csv');
+                                _downloadVehicleCSVExample();
                               },
                               icon: Icon(
                                 Icons.download,
-                                size: 24, color: Colors.blue,
+                                size: 24,
+                                color: Colors.blue,
                               ))
                         ],
                       ),
                       gapH32,
                       csvStringCars == null
                           ? gapW32
-                          : ExampleFile(text: csvStringCars!),
+                          : ExampleFileWidget(text: csvStringCars!),
                       gapH32,
                     ],
                   ),
@@ -175,7 +261,7 @@ class _FileExamplesState extends State<FileExamples>
             ),
             gapW32,
             SizedBox(
-              width: (width / 2) - 128,
+              width: (width / 2) - 180,
               child: Card(
                 shape: getDefaultRoundedBorder(),
                 elevation: 8,
@@ -184,49 +270,55 @@ class _FileExamplesState extends State<FileExamples>
                   child: ListView(
                     children: [
                       gapH32,
-                      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
                             'User File Example: .json type',
                             style: myTextStyleMediumLargeWithColor(
                                 context, getPrimaryColor(context), 20),
                           ),
+                          gapW32,
+                          gapW32,
                           IconButton(
                               tooltip: 'Download users.json',
                               onPressed: () {
-                                _downloadExamples('users.json');
+                                _downloadUserJSONExample();
                               },
                               icon: Icon(
                                 Icons.download,
-                                size: 24, color: Colors.blue,
+                                size: 24,
+                                color: Colors.blue,
                               ))
                         ],
                       ),
                       gapH32,
                       jsonStringUsers == null
                           ? gapW32
-                          : ExampleFile(text: jsonStringUsers!),
+                          : ExampleFileWidget(text: jsonStringUsers!),
                       gapH32,
-                      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
                             'Vehicle File Example : .json type',
                             style: myTextStyleMediumLargeWithColor(
                                 context, getPrimaryColor(context), 20),
                           ),
-                          IconButton(tooltip: 'Download vehicles.json',
+                          gapW32,
+                          gapW32,
+                          IconButton(
+                              tooltip: 'Download vehicles.json',
                               onPressed: () {
-                                _downloadExamples('vehicles.json');
+                                _downloadVehicleJSONExample();
                               },
-                              icon: Icon(
-                                Icons.download,
-                                size: 24, color: Colors.blue
-                              ))
+                              icon: Icon(Icons.download,
+                                  size: 24, color: Colors.blue))
                         ],
                       ),
                       jsonStringCars == null
                           ? gapW32
-                          : ExampleFile(text: jsonStringCars!),
+                          : ExampleFileWidget(text: jsonStringCars!),
                       gapH32,
                     ],
                   ),
@@ -240,9 +332,11 @@ class _FileExamplesState extends State<FileExamples>
   }
 }
 
-class ExampleFile extends StatelessWidget {
-  const ExampleFile({super.key, required this.text});
+class ExampleFileWidget extends StatelessWidget {
+  const ExampleFileWidget({super.key, required this.text});
+
   final String text;
+
   @override
   Widget build(BuildContext context) {
     return Card(

@@ -15,9 +15,10 @@ import 'my_chart_data.dart';
 
 class AssociationHeartbeatChart extends StatefulWidget {
   const AssociationHeartbeatChart({
-    super.key,
+    super.key, required this.numberOfDays,
   });
 
+  final int numberOfDays;
   @override
   State<AssociationHeartbeatChart> createState() =>
       _AssociationHeartbeatChartState();
@@ -37,10 +38,12 @@ class _AssociationHeartbeatChartState extends State<AssociationHeartbeatChart> {
   List<AssociationHeartbeatAggregationResult> timeSeriesResults = [];
   late StreamSubscription<VehicleHeartbeat> heartbeatStreamSubscription;
   int counter = 0;
+
   @override
   void initState() {
     super.initState();
     pp('$mm ....... initState ... will listen to stream to get active data ...');
+    days = widget.numberOfDays;
     _listen();
     _buildSpots();
   }
@@ -48,20 +51,19 @@ class _AssociationHeartbeatChartState extends State<AssociationHeartbeatChart> {
   @override
   void dispose() {
     super.dispose();
-
-
   }
+
   void _listen() async {
     heartbeatStreamSubscription =
         streamBloc.heartbeatStreamStream.listen((event) {
-          pp('$mm heartbeatStreamStream delivered event ... 😡😡😡  '
-              '${event.created} - vehicleHeartbeatId: ${event.vehicleHeartbeatId} -  ${event.vehicleReg}');
-          heartbeats.add(event);
-          int rem = heartbeats.length % 3;
-          if (rem == 0) {
-            _buildSpots();
-          }
-        });
+      pp('$mm heartbeatStreamStream delivered event ... 😡😡😡  '
+          '${event.created} - vehicleHeartbeatId: ${event.vehicleHeartbeatId} -  ${event.vehicleReg}');
+      heartbeats.add(event);
+      int rem = heartbeats.length % 3;
+      if (rem == 0) {
+        _buildSpots();
+      }
+    });
   }
 
   void _buildSpots() async {
@@ -71,12 +73,12 @@ class _AssociationHeartbeatChartState extends State<AssociationHeartbeatChart> {
     });
     try {
       final user = await prefs.getUser();
-      final date = DateTime.now().toUtc().subtract(Duration(days: 1));
+      final date = DateTime.now().toUtc().subtract(Duration(days: days));
       timeSeriesResults =
           await networkHandler.getAssociationHeartbeatTimeSeries(
               user!.associationId!, date.toIso8601String());
       pp('$mm _buildSpots .. association 🔵🔵 timeSeries : ${E.appleRed} ${timeSeriesResults.length}');
-      pp('$mm ... _buildSpots: ... to create graph spots ... ${timeSeriesResults.length}');
+      pp('$mm ... _buildSpots: ......... to create graph spots, timeSeriesResults: ${timeSeriesResults.length}');
       //limit to 24 series points and fill empty spots ...
       int count = 0;
       var delta = 0;
@@ -104,13 +106,23 @@ class _AssociationHeartbeatChartState extends State<AssociationHeartbeatChart> {
         pp('$mm ... _buildSpots: ... spots #2: ${spots.length}');
       } else {
         for (var i = 0; i < timeSeriesResults.length; i++) {
-          setSpot(timeSeriesResults.elementAt(i), i+delta);
+          setSpot(timeSeriesResults.elementAt(i), i + delta);
           count++;
         }
       }
-      pp('$mm ... _buildSpots: ... spots #3: ${spots.length}');
+      pp('$mm ... _buildSpots: ... spots built: #3: ${spots.length}');
       for (var spot in spots) {
-        pp('$mm ... final spot ${E.appleGreen} x: ${spot.x} y: ${spot.y}');
+        pp('$mm ... final spot, check for all zero y: ${E.appleGreen} x: ${spot.x} y: ${spot.y}');
+      }
+      int emptyCount = 0;
+      for (var spot in spots) {
+        if (spot.y == 0.0) {
+          emptyCount++;
+        }
+      }
+      if (emptyCount == spots.length) {
+        pp('$mm _buildSpots ${E.blueDot} all spots y are zer0. No chart??: spots: ${spots.length}');
+        buildLastHeartbeats();
       }
     } catch (e) {
       pp(e);
@@ -118,6 +130,41 @@ class _AssociationHeartbeatChartState extends State<AssociationHeartbeatChart> {
     setState(() {
       busy = false;
     });
+  }
+
+  void buildLastHeartbeats() {
+    pp('\n\n$mm buildLastHeartbeats ${E.blueDot} current spots: ${spots.length} timeSeriesResults: ${timeSeriesResults.length}');
+
+    final reversed = timeSeriesResults.reversed.toList();
+    final valid = <AssociationHeartbeatAggregationResult>[];
+    int count = 0;
+    for (var res in reversed) {
+      if (res.total! > 0) {
+        valid.add(res);
+        count++;
+        if (count > 24) {
+          break;
+        }
+      }
+    }
+    pp('$mm buildLastHeartbeats ${E.blueDot} valid aggregates calculated ...: ${valid.length}');
+
+    final fList = valid.reversed.toList();
+    count = 0;
+    spots.clear();
+    for (var value in fList) {
+      setSpot(value, count);
+      count++;
+    }
+    pp('$mm buildLastHeartbeats ${E.blueDot} spots created, the last measured ...: ${spots.length}');
+    for (var spot in spots) {
+      pp('$mm buildLastHeartbeats ... final aggregate: ${E.appleGreen} x: ${spot.x} y: ${spot.y}');
+    }
+    for (var aggregate in fList) {
+      pp('$mm buildLastHeartbeats ... final aggregate: ${E.appleGreen}${E.appleGreen}${E.appleGreen} '
+          ' year: ${aggregate.id!.year!} month: ${aggregate.id!.month!} day: ${aggregate.id!.day} hour: ${aggregate.id!.hour} - '
+          ' ${E.appleRed} total: ${aggregate.total!}');
+    }
   }
 
   void setSpot(AssociationHeartbeatAggregationResult value, int index) {
@@ -145,11 +192,14 @@ class _AssociationHeartbeatChartState extends State<AssociationHeartbeatChart> {
                         padding: const EdgeInsets.only(top: 16.0),
                         child: Text(
                           'Vehicle Heartbeats',
-                          style: myTextStyleMediumLargeWithColor(context,
-                          Theme.of(context).primaryColor, 24),
+                          style: myTextStyleMediumLargeWithColor(
+                              context, Theme.of(context).primaryColor, 24),
                         ),
                       ),
-                      Text('Data shown is for the last 24 hours', style: myTextStyleSmall(context),),
+                      Text(
+                        'Data shown is for the last 24 hours',
+                        style: myTextStyleSmall(context),
+                      ),
                       Expanded(
                         child: AspectRatio(
                           aspectRatio: 1.70,
@@ -164,15 +214,15 @@ class _AssociationHeartbeatChartState extends State<AssociationHeartbeatChart> {
                                   ),
                                 )
                               : Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: LineChart(
+                                  padding: const EdgeInsets.all(8.0),
+                                  child: LineChart(
                                     MyChartData.getData(
                                         colors: [Colors.blue, Colors.indigo],
                                         spots: spots),
                                     curve: Curves.bounceInOut,
                                     duration: Duration(milliseconds: 1500),
                                   ),
-                              ),
+                                ),
                         ),
                       ),
                     ],

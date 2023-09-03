@@ -64,7 +64,7 @@ class _AssociationCountsWidgetState extends State<AssociationCountsWidget> {
 
   Future<void> _handleData() async {
     pp('$mm _handleData ............................ '
-        'getting association counts ...');
+        'getting association counts ... widget.date: ${widget.date}');
     setState(() {
       busy = true;
     });
@@ -120,7 +120,7 @@ class _AssociationCountsWidgetState extends State<AssociationCountsWidget> {
                                 elevation: 12,
                                 color: widget.color == null
                                     ? Colors.black26
-                                    : Colors.indigo.shade300,
+                                    : Colors.red.shade300,
                                 child: Padding(
                                   padding: const EdgeInsets.all(12.0),
                                   child: Row(
@@ -145,7 +145,7 @@ class _AssociationCountsWidgetState extends State<AssociationCountsWidget> {
                                 elevation: 12,
                                 color: widget.color == null
                                     ? Colors.black26
-                                    : Colors.indigo.shade400,
+                                    : Colors.red.shade400,
                                 child: Padding(
                                   padding: const EdgeInsets.all(12.0),
                                   child: Row(
@@ -168,7 +168,7 @@ class _AssociationCountsWidgetState extends State<AssociationCountsWidget> {
                                 elevation: 12,
                                 color: widget.color == null
                                     ? Colors.black26
-                                    : Colors.indigo.shade500,
+                                    : Colors.red.shade500,
                                 child: Padding(
                                   padding: const EdgeInsets.all(12.0),
                                   child: Row(
@@ -190,7 +190,7 @@ class _AssociationCountsWidgetState extends State<AssociationCountsWidget> {
                                 elevation: 12,
                                 color: widget.color == null
                                     ? Colors.black26
-                                    : Colors.indigo.shade600,
+                                    : Colors.red.shade600,
                                 child: Padding(
                                   padding: const EdgeInsets.all(12.0),
                                   child: Row(
@@ -213,7 +213,7 @@ class _AssociationCountsWidgetState extends State<AssociationCountsWidget> {
                                 elevation: 12,
                                 color: widget.color == null
                                     ? Colors.black26
-                                    : Colors.indigo.shade700,
+                                    : Colors.red.shade700,
                                 child: Padding(
                                   padding: const EdgeInsets.all(12.0),
                                   child: Row(
@@ -232,15 +232,15 @@ class _AssociationCountsWidgetState extends State<AssociationCountsWidget> {
                                 ),
                               ),
                               gapH32,
-                              // Text(
-                              //   lastUpdated,
-                              //   style: myTextStyleSmall(context),
-                              // ),
-                              // gapH8,
                               Text(
-                                fmt.format(DateTime.parse(widget.date)),
+                                'Last Updated',
+                                style: myTextStyleSmall(context),
+                              ),
+                              gapH8,
+                              Text(
+                                widget.date,
                                 style: myTextStyleMediumLargeWithColor(context,
-                                    Theme.of(context).primaryColorLight, 20),
+                                    Theme.of(context).primaryColorLight, 14),
                               ),
                               gapH32,
                             ],
@@ -267,7 +267,7 @@ class TotalWidget extends StatelessWidget {
     final fmt = NumberFormat.decimalPattern();
     return Card(
       elevation: 16,
-      shape: getRoundedBorder(radius: 8),
+      shape: getDefaultRoundedBorder(),
       child: Padding(
         padding: const EdgeInsets.all(8.0),
         child: SizedBox(

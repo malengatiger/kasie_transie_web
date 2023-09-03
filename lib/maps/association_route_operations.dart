@@ -260,29 +260,27 @@ class AssociationRouteOperationsState extends State<AssociationRouteOperations> 
     }
   }
 
-  void _getRouteBags() async {
+  void _getRouteBags(bool refresh) async {
     user = await prefs.getUser();
     if (user == null) {
       return;
     }
     pp('\n\n$mm ............. getting route data ..........');
-
     setState(() {
       busy = true;
     });
 
     try {
       pp('$mm ... calling network.getRouteBags ....!');
-
       bags = await networkHandler.getRouteBags(
-          associationId: user!.associationId!);
+          associationId: user!.associationId!, refresh: refresh);
       pp('$mm .... route bags: ${bags.length}, if > 0, we are in business!!');
-      for (var value in bags) {
-        pp('$mm route: ${value.route!.name} 🔵🔵'
-            '\n🔵 routeLandmarks: ${value.routeLandmarks.length}'
-            '\n🔵 routePoints: ${value.routePoints.length}'
-            '\n🔵 routeCities: ${value.routeCities.length}');
-      }
+      // for (var value in bags) {
+      //   pp('$mm route: ${value.route!.name} 🔵🔵'
+      //       '\n🔵 routeLandmarks: ${value.routeLandmarks.length}'
+      //       '\n🔵 routePoints: ${value.routePoints.length}'
+      //       '\n🔵 routeCities: ${value.routeCities.length}');
+      // }
       final cl = await prefs.getColorAndLocale();
       date = await getFmtDate(
           DateTime.now().toIso8601String(), cl.locale, context);
@@ -302,7 +300,7 @@ class AssociationRouteOperationsState extends State<AssociationRouteOperations> 
     });
   }
 
-  int intervalSeconds = 60;
+  int intervalSeconds = 300;
   int minutes = 30;
   bool _showBag = false;
 
@@ -630,6 +628,14 @@ class AssociationRouteOperationsState extends State<AssociationRouteOperations> 
                   Icons.language,
                   color: Theme.of(context).primaryColor,
                 )),
+            IconButton(
+                onPressed: () {
+                  _getRouteBags(true);
+                },
+                icon: Icon(
+                  Icons.refresh,
+                  color: Theme.of(context).primaryColor,
+                )),
           ],
         ),
         key: _key,
@@ -703,12 +709,13 @@ class AssociationRouteOperationsState extends State<AssociationRouteOperations> 
             onMapCreated: (GoogleMapController controller) {
               pp('$mm .......... on onMapCreated .....');
               _mapController.complete(controller);
-              _getRouteBags();
+              _getRouteBags(false);
             },
           ),
           Positioned(
               child: LiveDisplay(
-                  width: 800, height: 100,
+                  width: 840, height: 180,
+            backgroundColor: Colors.black12,
             cutoffDate:
                 DateTime.now().toUtc().subtract(Duration(minutes: minutes)),
           )),
@@ -756,7 +763,7 @@ class AssociationRouteOperationsState extends State<AssociationRouteOperations> 
                   child: stringsHelper == null
                       ? gapW32
                       : AssociationCountsWidget(
-                          width: 360,
+                          width: 440,
                           date: date,
                           operationsSummary: stringsHelper!.operationsSummary,
                           dispatches: stringsHelper!.dispatchesText,

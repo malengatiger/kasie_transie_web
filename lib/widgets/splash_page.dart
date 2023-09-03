@@ -29,46 +29,14 @@ class _SplashWidgetState extends State<SplashWidget> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20.0),
       child: AnimatedContainer(
-        width: 600, height: 300,
+        width: 800, height: 600,
         curve: Curves.easeInOutCirc,
         duration: const Duration(milliseconds: 3000),
-        child: Card(
-          elevation: 24.0,
-          // shape: getDefaultRoundedBorder(),
-          child: Column(
-            children: [
-              const SizedBox(
-                height: 24,
-              ),
-              Center(
-                child: Image.asset(
-                  'assets/gio.png',
-                  height: 64,
-                  width: 64,
-                ),
-              ),
-              const SizedBox(
-                height: 4,
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // const FaIcon(FontAwesomeIcons.anchorCircleCheck),
-
-                  Text(
-                    message == null ? 'We help you see more!' : message!,
-                    style: myTextStyleSmall(context),
-                  ),
-                  const SizedBox(
-                    width: 24,
-                  ),
-                  const Text('🔷🔷'),
-                ],
-              ),
-              const SizedBox(
-                height: 20,
-              ),
-            ],
+        child: Center(
+          child: Image.asset(
+            'assets/ktlogo_red.png',
+            height: 400,
+            width: 600,
           ),
         ),
       ),

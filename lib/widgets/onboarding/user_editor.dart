@@ -93,109 +93,113 @@ class _UserEditorState extends State<UserEditor>
             shape: getDefaultRoundedBorder(),
             elevation: 12,
             child: Padding(
-              padding: const EdgeInsets.all(24.0),
+              padding: const EdgeInsets.all(12.0),
               child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Card(
-                  shape: getDefaultRoundedBorder(),
-                  elevation: 16,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 28.0),
-                    child: Form(
-                        key: formKey,
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            children: [
-                              gapH16,
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
+                padding: const EdgeInsets.all(12.0),
+                child: SizedBox(height: 660,
+                  child: Card(
+                    shape: getDefaultRoundedBorder(),
+                    elevation: 16,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 28.0),
+                      child: Form(
+                          key: formKey,
+                          child: SingleChildScrollView(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
                                 children: [
-                                  Text(
-                                    'User Editor',
-                                    style: myTextStyleLarge(context),
+                                  gapH16,
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        'User Editor',
+                                        style: myTextStyleLarge(context),
+                                      ),
+                                      IconButton(
+                                          onPressed: () {
+                                            _clearForm();
+                                          },
+                                          icon: Icon(
+                                            Icons.edit,
+                                            size: 28,
+                                          ))
+                                    ],
                                   ),
-                                  IconButton(
-                                      onPressed: () {
-                                        _clearForm();
-                                      },
-                                      icon: Icon(
-                                        Icons.edit,
-                                        size: 28,
-                                      ))
+                                  gapH32,
+                                  MyFormField(
+                                      controller: firstNameController,
+                                      label: 'First Name',
+                                      hint: 'Enter Name',
+                                      icon: Icon(Icons.person)),
+                                  gapH32,
+                                  MyFormField(
+                                      controller: lastNameController,
+                                      label: 'Surname',
+                                      hint: 'Enter Surname',
+                                      icon: Icon(Icons.person)),
+                                  gapH32,
+                                  MyFormField(
+                                      controller: emailController,
+                                      label: 'Email',
+                                      hint: 'Enter Email',
+                                      icon: Icon(Icons.email)),
+                                  gapH32,
+                                  MyFormField(
+                                      controller: cellphoneController,
+                                      textStyle: myTextStyleMediumLargeWithColor(
+                                          context,
+                                          getPrimaryColorLight(context),
+                                          24),
+                                      label: 'Cellphone Number',
+                                      hint: 'Enter Cellphone Number',
+                                      icon: Icon(Icons.phone)),
+                                  gapH32,
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.start,
+                                    children: [
+                                      Icon(Icons.handyman),
+                                      gapW16,
+                                      UserTypeDropDown(onUserType: (type) {
+                                        pp('$mm ... type picked: $type');
+                                        setState(() {
+                                          this.userType = type;
+                                        });
+                                      }),
+                                      gapW32,
+                                      userType == null
+                                          ? gapW32
+                                          : Text(
+                                              '$userType',
+                                              style:
+                                                  myTextStyleMediumLargeWithColor(
+                                                      context,
+                                                      Theme.of(context)
+                                                          .primaryColor,
+                                                      20),
+                                            ),
+                                    ],
+                                  ),
+                                  gapH32,
+                                  gapH32,
+                                  SizedBox(
+                                    width: 300,
+                                    child: ElevatedButton(
+                                        onPressed: () {
+                                          _submit();
+                                        },
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(16.0),
+                                          child: Text('Submit'),
+                                        )),
+                                  )
                                 ],
                               ),
-                              gapH32,
-                              MyFormField(
-                                  controller: firstNameController,
-                                  label: 'First Name',
-                                  hint: 'Enter Name',
-                                  icon: Icon(Icons.person)),
-                              gapH32,
-                              MyFormField(
-                                  controller: lastNameController,
-                                  label: 'Surname',
-                                  hint: 'Enter Surname',
-                                  icon: Icon(Icons.person)),
-                              gapH32,
-                              MyFormField(
-                                  controller: emailController,
-                                  label: 'Email',
-                                  hint: 'Enter Email',
-                                  icon: Icon(Icons.email)),
-                              gapH32,
-                              MyFormField(
-                                  controller: cellphoneController,
-                                  textStyle: myTextStyleMediumLargeWithColor(
-                                      context,
-                                      getPrimaryColorLight(context),
-                                      24),
-                                  label: 'Cellphone Number',
-                                  hint: 'Enter Cellphone Number',
-                                  icon: Icon(Icons.phone)),
-                              gapH32,
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.start,
-                                children: [
-                                  Icon(Icons.handyman),
-                                  gapW16,
-                                  UserTypeDropDown(onUserType: (type) {
-                                    pp('$mm ... type picked: $type');
-                                    setState(() {
-                                      this.userType = type;
-                                    });
-                                  }),
-                                  gapW32,
-                                  userType == null
-                                      ? gapW32
-                                      : Text(
-                                          '$userType',
-                                          style:
-                                              myTextStyleMediumLargeWithColor(
-                                                  context,
-                                                  Theme.of(context)
-                                                      .primaryColor,
-                                                  20),
-                                        ),
-                                ],
-                              ),
-                              gapH32,
-                              gapH32,
-                              SizedBox(
-                                width: 300,
-                                child: ElevatedButton(
-                                    onPressed: () {
-                                      _submit();
-                                    },
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(16.0),
-                                      child: Text('Submit'),
-                                    )),
-                              )
-                            ],
-                          ),
-                        )),
+                            ),
+                          )),
+                    ),
                   ),
                 ),
               ),

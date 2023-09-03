@@ -78,7 +78,7 @@ class AssociationRouteMapsState extends State<AssociationRouteMaps> {
       _user = await prefs.getUser();
       pp('\n\n$mm .......... get all Association Routes ... refresh: $refresh');
       bags = await networkHandler.getRouteBags(
-          associationId: _user!.associationId!);
+          associationId: _user!.associationId!, refresh: refresh);
       routes.clear();
       bags.forEach((element) {
         routes.add(element.route!);
