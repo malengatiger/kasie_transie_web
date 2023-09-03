@@ -20,6 +20,7 @@ import 'package:kasie_transie_web/widgets/dashboard_widgets/side_board.dart';
 import 'package:kasie_transie_web/widgets/days_drop_down.dart';
 import 'package:kasie_transie_web/widgets/demo_driver.dart';
 import 'package:kasie_transie_web/widgets/live_activities.dart';
+import 'package:kasie_transie_web/widgets/onboarding/user_onboarding.dart';
 import 'package:kasie_transie_web/widgets/timer_widget.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -356,6 +357,13 @@ class _AssociationDashboardState extends State<AssociationDashboard> {
     setState(() {});
   }
 
+  Future<void> _navigateToUserList() async {
+    pp('$mm .... _navigateToUserList ..........');
+    await navigateWithScale(
+        UserOnboarding(),
+        context);
+    pp('$mm .... back from car list');
+  }
 
 
   Future<void> _navigateToCarList() async {
@@ -434,7 +442,7 @@ class _AssociationDashboardState extends State<AssociationDashboard> {
                   )),
               IconButton(
                   onPressed: () {
-                    // _navigateToScanner();
+                    _navigateToCarList();
                   },
                   icon: Icon(Icons.airport_shuttle,
                       color: Theme.of(context).primaryColor)),
@@ -458,7 +466,7 @@ class _AssociationDashboardState extends State<AssociationDashboard> {
                         title: 'Menu',
                         onUsers: () {
                           setState(() {
-                            _showUsers = true;
+                            _navigateToUserList();
                           });
                         },
                         onCars: () {
@@ -493,7 +501,7 @@ class _AssociationDashboardState extends State<AssociationDashboard> {
                         }),
                   ),
                   gapW32,
-                  timeSeriesResults.isEmpty? gapW32: SizedBox(
+                   SizedBox(
                     width: width2,
                     child: SingleChildScrollView(
                       child: Column(

@@ -108,8 +108,8 @@ class DispatchAndCommuterRequestClusterMapState extends State<DispatchAndCommute
   void _startTimer() {
     pp('$mm ... _startTimer ....');
 
-    timer = Timer.periodic(Duration(seconds: 60), (timer) {
-      pp('$mm ... timer tick: ${timer.tick}  .... after 30 seconds');
+    timer = Timer.periodic(Duration(minutes: 600), (timer) {
+      pp('$mm ... timer tick: ${timer.tick}  .... after 600 minutes');
       _getAssociationBag();
     });
   }

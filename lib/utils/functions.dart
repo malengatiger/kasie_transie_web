@@ -29,7 +29,15 @@ pp(dynamic msg) {
     }
   }
 }
-
+Color getPrimaryColor(BuildContext context) {
+  return Theme.of(context).primaryColor;
+}
+Color getPrimaryColorLight(BuildContext context) {
+  return Theme.of(context).primaryColorLight;
+}
+Color getPrimaryColorDark(BuildContext context) {
+  return Theme.of(context).primaryColorDark;
+}
 Future<String> getFmtDate(String date, String locale, BuildContext context) async {
 
   initializeDateFormatting(locale);

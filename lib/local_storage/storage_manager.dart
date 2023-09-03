@@ -3,6 +3,7 @@ import 'package:kasie_transie_web/data/ambassador_passenger_count.dart';
 import 'package:kasie_transie_web/data/commuter_request.dart';
 import 'package:kasie_transie_web/data/route_landmark.dart';
 import 'package:kasie_transie_web/data/route_point.dart';
+import 'package:kasie_transie_web/data/user.dart';
 import 'package:kasie_transie_web/data/vehicle.dart';
 import 'package:kasie_transie_web/data/vehicle_departure.dart';
 import 'package:kasie_transie_web/data/vehicle_heartbeat.dart';
@@ -35,6 +36,8 @@ class StorageManager {
   final passengerStore = stringMapStoreFactory.store('passengerStore');
   final timeSeriesStore = stringMapStoreFactory.store('timeSeriesStore');
   final carStore = stringMapStoreFactory.store('carStore');
+  final userStore = stringMapStoreFactory.store('userStore');
+
 
   final factory = databaseFactoryWeb;
 
@@ -99,7 +102,15 @@ class StorageManager {
     pp('$mm ... Vehicles found in cache: ${list.length} ...');
     return list;
   }
-
+  Future<List<User>> getUsers() async {
+    var list = <User>[];
+    final snapshots = await userStore.find(db);
+    for (var snap in snapshots.toList()) {
+      list.add(User.fromJson(snap.value));
+    }
+    pp('$mm ... Users found in cache: ${list.length} ...');
+    return list;
+  }
   Future<List<VehicleArrival>> getArrivals(String startDate) async {
     var list = <VehicleArrival>[];
     final snapshots =  await arrivalStore.find(db,
@@ -493,6 +504,32 @@ class StorageManager {
       final startDate = DateTime.now().toUtc().subtract(Duration(days: 1)).toIso8601String();
       final tot = await getDepartures(startDate);
       pp('$mm ... VehicleDepartures ${E.appleRed} ${E.appleRed} cached  $cnt total in store : ${tot.length}');
+    } catch (e) {
+      pp(e);
+    }
+  }
+
+  Future addUsers(List<User> users) async {
+    pp('$mm ... addUsers : ${users.length}');
+    var cnt = 0;
+    for (var value in users) {
+      final key = await userStore
+          .record(value.userId!)
+          .update(db, value.toJson());
+      if (key == null) {
+        final key2 = await userStore
+            .record(value.userId!)
+            .add(db, value.toJson());
+        if (key2 != null) {
+          cnt++;
+        }
+      } else {
+        cnt++;
+      }
+    }
+    try {
+      final tot = await getUsers();
+      pp('$mm ... Users ${E.appleRed} ${E.appleRed} cached  $cnt total in store : ${tot.length}');
     } catch (e) {
       pp(e);
     }

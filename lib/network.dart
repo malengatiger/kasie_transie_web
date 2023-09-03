@@ -538,6 +538,41 @@ class NetworkHandler {
     return cars;
   }
 
+  Future<List<User>> getAssociationUsers(
+      {required String associationId, required bool refresh}) async {
+    pp('$xyz getAssociationUsers: 🔆🔆🔆  ...');
+
+    var cList = await storageManager.getUsers();
+
+    if (refresh) {
+      return _getUsersFromBackend(associationId);
+    }
+    if (cList.isEmpty) {
+      cList = await _getUsersFromBackend(associationId);
+    }
+    return cList;
+  }
+
+  Future<List<User>> _getUsersFromBackend(String associationId) async {
+    var start = DateTime.now();
+    List<User> users = [];
+    final token = await getAuthToken();
+    if (token == null) {
+      pp('$xyz token is null, quit! ${E.redDot}${E.redDot}${E.redDot}');
+      return [];
+    }
+    final mUrl = '${KasieEnvironment.getUrl()}'
+        'getAssociationUsers?associationId=$associationId';
+
+    List res = await httpGet(mUrl, token);
+    res.forEach((element) {
+      users.add(User.fromJson(element));
+    });
+    pp('$xyz getAssociationUsers: 🔆🔆🔆 found: ${users.length} bytes ...');
+
+    return users;
+
+  }
   Future httpGet(String mUrl, String token) async {
     pp('$xyz httpGet: 🔆 🔆 🔆 calling :\n 💙 $mUrl  💙');
     var start = DateTime.now();
