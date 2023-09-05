@@ -76,7 +76,7 @@ class KasieWeb extends StatelessWidget {
                   nextScreen: const AssociationDashboard(),
                   splashTransition: SplashTransition.fadeTransition,
                   pageTransitionType: PageTransitionType.leftToRight,
-                  backgroundColor: Colors.blue.shade900,
+                  backgroundColor: Colors.deepOrange.shade200,
                 ));
           }),
     );

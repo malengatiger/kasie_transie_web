@@ -8,6 +8,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:kasie_transie_web/data/association_counts.dart';
+import 'package:kasie_transie_web/data/custom_response.dart';
 import 'package:kasie_transie_web/data/example_file.dart';
 import 'package:kasie_transie_web/data/generation_request.dart';
 import 'package:kasie_transie_web/data/user.dart';
@@ -47,6 +48,68 @@ class NetworkHandler {
     return token;
   }
 
+  Future<Vehicle?> addVehicle(Vehicle vehicle) async {
+    final token = await getAuthToken();
+    if (token != null) {
+      final mJson = await httpPost(
+          '${KasieEnvironment.getUrl()}addVehicle', vehicle.toJson(), token);
+      final Vehicle car = Vehicle.fromJson(mJson);
+      await storageManager.addVehicles([car]);
+      pp('$xyz vehicle added OK! ${vehicle.vehicleReg} ${E.leaf2}${E.leaf2}${E.leaf2} ');
+
+      return car;
+    } else {
+      pp('$xyz addVehicle ......... no token! ${E.redDot}${E.redDot}${E.redDot} ');
+    }
+    return null;
+  }
+
+  Future<Vehicle?> updateVehicle(Vehicle vehicle) async {
+    final token = await getAuthToken();
+    if (token != null) {
+      final mJson = await httpPost(
+          '${KasieEnvironment.getUrl()}updateVehicle', vehicle.toJson(), token);
+      final Vehicle car = Vehicle.fromJson(mJson);
+      await storageManager.addVehicles([car]);
+      pp('$xyz vehicle updated OK! ${vehicle.vehicleReg} ${E.leaf2}${E.leaf2}${E.leaf2} ');
+      return car;
+    } else {
+      pp('$xyz updateVehicle ......... no token! ${E.redDot}${E.redDot}${E.redDot} ');
+    }
+    return null;
+  }
+
+  Future<User?> updateUser(User user) async {
+    final token = await getAuthToken();
+    if (token != null) {
+      final url = '${KasieEnvironment.getUrl()}updateUser';
+      final mJson = await httpPost(url, user.toJson(), token);
+      final User mUser = User.fromJson(mJson);
+      await storageManager.addUsers([mUser]);
+      pp('$xyz user updated OK! ${user.name} ${E.leaf2}${E.leaf2}${E.leaf2} ');
+      return mUser;
+    } else {
+      pp('$xyz user updated ......... no token! ${E.redDot}${E.redDot}${E.redDot} ');
+    }
+    return null;
+  }
+
+  Future<User?> createUser(User user) async {
+    final token = await getAuthToken();
+    if (token != null) {
+      final url = '${KasieEnvironment.getUrl()}createUser';
+      final mJson = await httpPost(url, user.toJson(), token);
+      final User mUser = User.fromJson(mJson);
+      await storageManager.addUsers([mUser]);
+      pp('$xyz user added OK! ${user.name} ${E.leaf2}${E.leaf2}${E.leaf2} ');
+
+      return mUser;
+    } else {
+      pp('$xyz addUser ......... no token! ${E.redDot}${E.redDot}${E.redDot} ');
+    }
+    return null;
+  }
+
   Future<User?> getUserById(String userId) async {
     final cmd = '${KasieEnvironment.getUrl()}getUserById?userId=$userId';
     pp('$xyz getUserById .........userId: $userId  ${E.blueDot} $cmd');
@@ -59,52 +122,6 @@ class NetworkHandler {
       pp('$xyz getUserById ......... no token! ${E.redDot}${E.redDot}${E.redDot} ');
     }
     return null;
-  }
-
-  Future httpPost(String mUrl, Map? bag, String token) async {
-    String? mBag;
-    if (bag != null) {
-      mBag = json.encode(bag);
-    }
-    Map<String, String> headers = {
-      'Content-type': 'application/json',
-      'Accept': 'application/json',
-    };
-    final start = DateTime.now();
-    headers['Authorization'] = 'Bearer $token';
-    try {
-      final resp = await client
-          .post(
-            Uri.parse(mUrl),
-            body: mBag,
-            headers: headers,
-          )
-          .timeout(const Duration(seconds: 120));
-      if (resp.statusCode == 200) {
-        pp('$xyz  _httpPost RESPONSE: 💙💙 statusCode: 👌👌👌 '
-            '${resp.statusCode} 👌👌👌 💙 for $mUrl');
-      } else {
-        pp('$xyz  👿👿👿_httpPost: 🔆 statusCode: 👿👿👿 '
-            '${resp.statusCode} 🔆🔆🔆 for $mUrl');
-        pp(resp.body);
-        throw KasieException(
-            message: 'Bad status code: ${resp.statusCode} - ${resp.body}',
-            url: mUrl,
-            translationKey: 'serverProblem',
-            errorType: KasieException.socketException);
-      }
-      var end = DateTime.now();
-      pp('$xyz  _httpPost: 🔆 elapsed time: ${end.difference(start).inSeconds} seconds 🔆');
-      try {
-        var mJson = json.decode(resp.body);
-        return mJson;
-      } catch (e) {
-        pp("$xyz 👿👿👿👿👿👿👿 json.decode failed, returning response body");
-        return resp.body;
-      }
-    } catch (e) {
-      pp(e.toString());
-    }
   }
 
   Future<Uint8List> _httpGetZippedData(String mUrl, String token) async {
@@ -517,7 +534,8 @@ class NetworkHandler {
 
         rbList.add(RouteBag(
             route: route,
-            routeLandmarks: marks, routePoints: points,
+            routeLandmarks: marks,
+            routePoints: points,
             routeCities: cities));
       }
       pp('$xyz ..getRouteBags - routeBags built '
@@ -535,12 +553,17 @@ class NetworkHandler {
 //
   Future<List<Vehicle>> getAssociationVehicles(
       {required String associationId, required bool refresh}) async {
-    pp('$xyz getAssociationVehicles: 🔆🔆🔆 get zipped data ...');
+    pp('$xyz getAssociationVehicles: 🔆🔆🔆 ......................');
 
     if (refresh) {
-      return _getCarsFromBackend(associationId);
+      return await _getCarsFromBackend(associationId);
     }
-    final mList = await storageManager.getCars();
+    var mList = await storageManager.getCars();
+    if (mList.isEmpty) {
+      mList = await getAssociationVehicles(
+          associationId: associationId, refresh: true);
+      pp('$xyz getAssociationVehicles: 🔆🔆🔆 found in cache: ${mList.length} ......................');
+    }
     return mList;
   }
 
@@ -575,7 +598,7 @@ class NetworkHandler {
         var end = DateTime.now();
         var ms = end.difference(start).inSeconds;
         pp('$xyz getAssociationVehicles 🍎🍎🍎🍎 work is done!, elapsed seconds: '
-            '🍎$ms 🍎vehicles done: ${cars.length}\n\n');
+            '🍎$ms 🍎vehicles done: ${cars.length} will add to cache ... \n\n');
 
         storageManager.addVehicles(cars);
       }
@@ -618,6 +641,7 @@ class NetworkHandler {
     return users;
   }
 
+//network calls
   Future httpGet(String mUrl, String token) async {
     pp('$xyz httpGet: 🔆 🔆 🔆 calling :\n 💙 $mUrl  💙');
     var start = DateTime.now();
@@ -634,40 +658,92 @@ class NetworkHandler {
             headers: headers,
           )
           .timeout(const Duration(seconds: 120));
-      pp('$xyz _httpGet call RESPONSE: .... : 💙 statusCode: 👌👌👌 ${resp.statusCode} 👌👌👌 💙 for $mUrl');
+      pp('$xyz httpGet call RESPONSE: .... : ${E.blueDot}${E.blueDot}   statusCode: ${resp.statusCode} ${E.blueDot}  for $mUrl');
       var end = DateTime.now();
-      pp('$xyz _httpGet call: 🔆 elapsed time for http: ${end.difference(start).inSeconds} seconds 🔆 \n\n');
+      pp('$xyz httpGet call: 🔆 elapsed time for http: ${E.blueDot} ${end.difference(start).inSeconds} seconds 🔆 \n\n');
 
       if (resp.statusCode == 200) {
         var mJson = json.decode(resp.body);
         return mJson;
       }
-
-      if (resp.statusCode == 403) {
-        var msg =
-            '😡 😡 status code: ${resp.statusCode}, Request Forbidden 🥪 🥙 🌮  😡 ${resp.body}';
-        pp(msg);
+      var msg =
+          '$xyz 😡😡😡😡😡😡 Bad Moon Rising: status: ${resp.statusCode}, '
+          'NOT GOOD, throwing up !! \n${E.redDot}${E.redDot}${E.redDot} body: ${E.redDot} ${resp.body}\n'
+          '👿👿👿👿👿👿👿👿👿👿👿👿👿👿';
+      pp(msg);
+      if (resp.statusCode > 399) {
+        var mJson = json.decode(resp.body);
+        final customResponse = CustomResponse.fromJson(mJson);
+        myPrettyJsonPrint(customResponse.toJson());
         final gex = KasieException(
-            message: 'Forbidden request: ${resp.statusCode} - ${resp.body}',
-            url: mUrl,
-            translationKey: 'authProblem',
-            errorType: KasieException.socketException);
-        throw gex;
-      } else {
-        var msg =
-            '$xyz 😡😡😡😡😡😡 Bad Moon Rising: status: ${resp.statusCode}, '
-            'NOT GOOD, throwing up !! 🥪 🥙 🌮 😡 body: ${E.redDot} ${resp.body}';
-        pp(msg);
-        final gex = KasieException(
-            message: 'Bad status code: ${resp.statusCode} - ${resp.body}',
+            message: '${customResponse.message}',
             url: mUrl,
             translationKey: 'serverProblem',
             errorType: KasieException.socketException);
         throw gex;
       }
     } catch (e) {
-      pp(e);
-      rethrow;
+      final gex = KasieException(
+          message: '$e',
+          url: mUrl,
+          translationKey: 'httpGetProblem',
+          errorType: KasieException.socketException);
+      throw gex;
+    }
+  }
+
+  Future httpPost(String mUrl, Map? bag, String token) async {
+    String? mBag;
+    if (bag != null) {
+      mBag = json.encode(bag);
+    }
+    Map<String, String> headers = {
+      'Content-type': 'application/json',
+      'Accept': 'application/json',
+    };
+    final start = DateTime.now();
+    headers['Authorization'] = 'Bearer $token';
+    try {
+      final resp = await client
+          .post(
+            Uri.parse(mUrl),
+            body: mBag,
+            headers: headers,
+          )
+          .timeout(const Duration(seconds: 120));
+
+      pp('$xyz  httpPost RESPONSE: ${E.blueDot} ${E.blueDot} statusCode:  '
+          '${resp.statusCode}  💙 for $mUrl');
+      var end = DateTime.now();
+      pp('$xyz  httpPost: 🔆 elapsed time: ${end.difference(start).inSeconds} seconds 🔆');
+
+      if (resp.statusCode == 200) {
+        var mJson = json.decode(resp.body);
+        return mJson;
+      }
+      var msg =
+          '$xyz 😡😡😡😡😡😡 Bad Moon Rising: status: ${resp.statusCode}, '
+          'NOT GOOD, throwing up !! \n${E.redDot}${E.redDot}${E.redDot} body: ${E.redDot} ${resp.body}\n'
+          '👿👿👿👿👿👿👿👿👿👿👿👿👿👿';
+      pp(msg);
+      if (resp.statusCode > 399) {
+        var mJson = json.decode(resp.body);
+        final customResponse = CustomResponse.fromJson(mJson);
+        myPrettyJsonPrint(customResponse.toJson());
+        final gex = KasieException(
+            message: '${customResponse.message}',
+            url: mUrl,
+            translationKey: 'serverProblem',
+            errorType: KasieException.socketException);
+        throw gex;
+      }
+    } catch (e) {
+      final gex = KasieException(
+          message: '$e}',
+          url: mUrl,
+          translationKey: 'httpPostProblem',
+          errorType: KasieException.socketException);
+      throw gex;
     }
   }
 }

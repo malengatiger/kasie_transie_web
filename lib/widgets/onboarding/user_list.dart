@@ -25,13 +25,16 @@ class UserList extends StatelessWidget {
             style: myTextStyleSmall(context),
           ),
           badgeStyle: bd.BadgeStyle(
-            elevation: 12,
+            elevation: 20,
             padding: EdgeInsets.all(8.0),
           ),
           child: ListView.builder(
               itemCount: users.length,
               itemBuilder: (c, index) {
                 final user = users.elementAt(index);
+                final initial1 = user.firstName!.substring(0, 0).toUpperCase();
+                final initial2 = user.lastName!.substring(0, 0).toUpperCase();
+
                 return GestureDetector(
                   onTap: () {
                     pp('$mm ... user: ${user.toJson()}');
@@ -41,22 +44,30 @@ class UserList extends StatelessWidget {
                     shape: getDefaultRoundedBorder(),
                     elevation: 16,
                     child: ListTile(
-                      leading: Icon(Icons.person, color: getPrimaryColorLight(context),),
-                      title: Row(
+                      leading: CircleAvatar(
+                        backgroundImage: AssetImage('assets/profile.png', ),
+                        radius: 18.0,
+                        // backgroundColor: Colors.black,
+                        // child: Text(
+                        //   '$initial1 $initial2',
+                        //   style: myTextStyleMediumLargeWithColor(
+                        //       context, Colors.black, 18),
+                        // ),
+                      ),
+                      title: Row(mainAxisAlignment: MainAxisAlignment.start,
                         children: [
                           SizedBox(
-                            width: 48,
-                            child: Text('${index + 1}'),
+                            width: 24,
+                            child: Text('${index + 1}', style: myTextStyleTiny(context),),
                           ),
-                          Text('${user.name}', style: myTextStyleMediumLargeWithColor(context, getPrimaryColorLight(context),
-                              18),),
-                          gapW32,
-                          Text('${user.cellphone}', style: myTextStyleTiny(context),),
+                          gapW8,
+                          Text(
+                            '${user.name}',
+                            style: myTextStyleMediumLargeWithColor(
+                                context, getPrimaryColorLight(context), 18),
+                          ),
+
                         ],
-                      ),
-                      subtitle: Padding(
-                        padding: const EdgeInsets.only(left: 48.0),
-                        child: Text('${user.userType}', style: myTextStyleSmall(context),),
                       ),
                     ),
                   ),

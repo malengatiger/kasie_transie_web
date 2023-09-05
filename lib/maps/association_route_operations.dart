@@ -167,7 +167,6 @@ class AssociationRouteOperationsState extends State<AssociationRouteOperations> 
       _showBag = true;
       final d = DateTime.now().toLocal().toIso8601String();
       final cl = await prefs.getColorAndLocale();
-      date = DateFormat("MMM, dd MMMM HH:mm:ss").format(DateTime.now());
       if (mounted) {
         setState(() {});
       }
@@ -764,7 +763,7 @@ class AssociationRouteOperationsState extends State<AssociationRouteOperations> 
                       ? gapW32
                       : AssociationCountsWidget(
                           width: 440,
-                          date: date,
+                          minutes: minutes,
                           operationsSummary: stringsHelper!.operationsSummary,
                           dispatches: stringsHelper!.dispatchesText,
                           passengers: stringsHelper!.passengers,

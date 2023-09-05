@@ -1,37 +1,44 @@
 import 'package:flutter/material.dart';
 import 'package:kasie_transie_web/data/user.dart';
+import 'package:kasie_transie_web/data/vehicle.dart';
 import 'package:kasie_transie_web/network.dart';
 import 'package:kasie_transie_web/utils/functions.dart';
 import 'package:kasie_transie_web/utils/navigator_utils.dart';
 import 'package:kasie_transie_web/utils/prefs.dart';
+import 'package:kasie_transie_web/widgets/car_list.dart';
+import 'package:kasie_transie_web/widgets/demo_driver.dart';
+import 'package:kasie_transie_web/widgets/onboarding/car_editor.dart';
 import 'package:kasie_transie_web/widgets/onboarding/user_editor.dart';
 import 'package:kasie_transie_web/widgets/onboarding/file_uploader_widget.dart';
 import 'package:kasie_transie_web/widgets/onboarding/user_list.dart';
+import 'package:kasie_transie_web/widgets/onboarding/user_search.dart';
 import 'package:kasie_transie_web/widgets/timer_widget.dart';
 
 import 'file_examples.dart';
 
-class UserOnboarding extends StatefulWidget {
-  const UserOnboarding({Key? key}) : super(key: key);
+class CarOnboarding extends StatefulWidget {
+  const CarOnboarding({Key? key}) : super(key: key);
 
   @override
-  _UserOnboardingState createState() => _UserOnboardingState();
+  _CarOnboardingState createState() => _CarOnboardingState();
 }
 
-class _UserOnboardingState extends State<UserOnboarding>
+class _CarOnboardingState extends State<CarOnboarding>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  static const mm = '🔵🔵🔵🔵🔵 UserOnboarding 🔵🔵';
+  static const mm = '💦💦💦💦 CarOnboarding 💦💦';
 
-  var users = <User>[];
+  var cars = <Vehicle>[];
+  User? owner;
   bool busy = false;
-  bool _showUpload = false;
+  bool _showOwnerSearch = false;
 
   @override
   void initState() {
     _controller = AnimationController(vsync: this);
     super.initState();
-    _getUsers(false);
+    _getUser();
+
   }
 
   @override
@@ -40,29 +47,20 @@ class _UserOnboardingState extends State<UserOnboarding>
     super.dispose();
   }
 
-  User? selectedUser;
+  Vehicle? selectedCar;
   User? deviceUser;
+  void _getUser() async {
+    deviceUser = await prefs.getUser();
+    setState(() {
 
-  Future _getUsers(bool refresh) async {
-    setState(() {
-      busy = true;
-    });
-    try {
-      deviceUser = await prefs.getUser();
-      users = await networkHandler.getAssociationUsers(
-          associationId: deviceUser!.associationId!, refresh: refresh);
-      users.sort((a,b) => a.name.compareTo(b.name));
-      pp('$mm ... association users : ${users.length}');
-    } catch (e) {
-      pp(e);
-    }
-    setState(() {
-      busy = false;
     });
   }
+
+bool _showUpload = false;
   void _navigateToExamples() {
     navigateWithScale(FileExamples(), context);
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -75,7 +73,7 @@ class _UserOnboardingState extends State<UserOnboarding>
             deviceUser == null? gapW32:Text('${deviceUser!.associationName}',
             style: myTextStyleMediumLargeWithColor(context, getPrimaryColor(context), 14),),
             gapW128, gapW32,
-            Text('User Management',
+            Text('Vehicle Management',
               style: myTextStyleMediumLargeWithColor(context, getPrimaryColorLight(context), 24),),
 
           ],
@@ -86,11 +84,7 @@ class _UserOnboardingState extends State<UserOnboarding>
                 _navigateToExamples();
               },
               icon: Icon(Icons.file_copy_outlined)),
-          IconButton(
-              onPressed: () {
-                _getUsers(true);
-              },
-              icon: Icon(Icons.refresh)),
+
         ],
       ),
       body: Stack(
@@ -104,7 +98,7 @@ class _UserOnboardingState extends State<UserOnboarding>
                 padding: const EdgeInsets.all(16.0),
                 child: Center(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 48.0),
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
                     child: Row(
                       children: [
                         SizedBox(
@@ -114,7 +108,7 @@ class _UserOnboardingState extends State<UserOnboarding>
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               gapH16,
-                              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              Row(mainAxisAlignment: MainAxisAlignment.start,
                                 children: [
                                   SizedBox(
                                     width: 300,
@@ -126,34 +120,30 @@ class _UserOnboardingState extends State<UserOnboarding>
                                         },
                                         child: Padding(
                                           padding: const EdgeInsets.all(16.0),
-                                          child: Text('Upload User File'),
+                                          child: Text('Upload Vehicle File'),
                                         )),
                                   ),
-                                  IconButton(onPressed: (){
-                                    _getUsers(true);
-                                  }, icon: Icon(Icons.refresh)),
                                 ],
                               ),
-                              gapH32,
-                              Row(mainAxisAlignment: MainAxisAlignment.center,
+                              gapH4,
+                              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
-                                      'Uploaded user file may be in .csv or .json file type'),
-                                  gapW32,
-                                  gapW32,
-                                  TextButton(onPressed: (){
+                                      'Uploaded vehicle file may be in .csv or .json file type',
+                                    style: myTextStyleSmall(context),),
+
+                                  IconButton(onPressed: (){
                                     _navigateToExamples();
-                                  }, child: Text('Examples')),
+                                  }, icon: Icon(Icons.question_mark, size: 24,), ),
                                 ],
                               ),
                               gapH32,
                               Expanded(
-                                child: UserList(
-                                  users: users,
-                                  onUserPicked: (u) {
-                                    pp('$mm ... user picked: ${u.name}');
+                                child: CarList(
+                                  onCarPicked: (u) {
+                                    pp('$mm ... car picked: ${u.vehicleReg}');
                                     setState(() {
-                                      selectedUser = u;
+                                      selectedCar = u;
                                     });
                                   },
                                 ),
@@ -164,14 +154,15 @@ class _UserOnboardingState extends State<UserOnboarding>
                         gapW32,
                         SizedBox(
                           width: (width / 2),
-                          child: UserEditor(
-                            user: selectedUser, onUserCreated: (m ) {
-                              pp('$mm ... user created: ${m.name} ');
-                              _getUsers(false);
-                          }, onUserUpdated: (m ) {
-                            pp('$mm ... user updated: ${m.name} ');
-                            _getUsers(false);
-                          },
+                          child: CarEditor(
+                            car: selectedCar,
+                            user: owner,
+                            onOwnerRequired: (){
+                              _showOwnerSearch = true;
+                              setState(() {
+
+                              });
+                            },
                           ),
                         ),
                       ],
@@ -183,27 +174,39 @@ class _UserOnboardingState extends State<UserOnboarding>
           ),
           _showUpload
               ? Positioned(
-                  child: Center(
-                      child: FileUploaderWidget(
-                  isVehicles: false,
-                  isUsers: true,
-                  onFileUploaded: () {
-                    _getUsers(true);
-                    setState(() {
-                      _showUpload = false;
-                    });
-                  },
-                  onClose: () {
-                    _getUsers(true);
-                    setState(() {
-                      _showUpload = false;
-                    });
-                  },
-                )))
+              child: Center(
+                  child: FileUploaderWidget(
+                    isVehicles: false,
+                    isUsers: true,
+                    onFileUploaded: () {
+                      setState(() {
+                        _showUpload = false;
+                      });
+                    },
+                    onClose: () {
+                      setState(() {
+                        _showUpload = false;
+                      });
+                    },
+                  )))
               : gapW16,
+          _showOwnerSearch
+              ? Positioned(
+                  child: Center(
+                      child: UserSearch(onUserPicked: (u){
+                        pp('$mm ... user picked: ${u.name}');
+                          setState(() {
+                            owner = u;
+                          });
+                      },
+                      ),
+                  ),
+          ): gapW16,
+
           busy? Positioned(child: Center(child: TimerWidget(title: 'Loading all users',))):gapW32
         ],
       ),
     ));
+
   }
 }

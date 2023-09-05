@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:kasie_transie_web/network.dart';
 import 'package:kasie_transie_web/utils/functions.dart';
+import 'package:kasie_transie_web/widgets/car_list.dart';
 import 'package:kasie_transie_web/widgets/timer_widget.dart';
-
+import 'package:badges/badges.dart' as bd;
 import '../data/generation_request.dart';
 import '../data/route.dart' as lib;
 import '../data/vehicle.dart' as lib;
@@ -190,8 +191,7 @@ class _DemoDriverState extends State<DemoDriver>
                             setState(() {
                               car = c;
                             });
-                          },
-                          cars: cars),
+                          },),
                     )
                   ],
                 ))
@@ -208,40 +208,6 @@ class _DemoDriverState extends State<DemoDriver>
   }
 }
 
-class CarList extends StatelessWidget {
-  const CarList({super.key, required this.onCarPicked, required this.cars});
-
-  final Function(lib.Vehicle) onCarPicked;
-  final List<lib.Vehicle> cars;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView.builder(
-        itemCount: cars.length,
-        itemBuilder: (ctx, index) {
-          final car = cars.elementAt(index);
-          return GestureDetector(
-            onTap: () {
-              onCarPicked(car);
-            },
-            child: Card(
-              shape: getDefaultRoundedBorder(),
-              elevation: 8,
-              child: ListTile(
-                leading: Icon(
-                  Icons.airport_shuttle,
-                  color: Theme.of(context).primaryColor,
-                ),
-                title: Text(
-                  '${car.vehicleReg}',
-                  style: myTextStyleMediumLarge(context, 20),
-                ),
-              ),
-            ),
-          );
-        });
-  }
-}
 
 class RouteList extends StatelessWidget {
   const RouteList(

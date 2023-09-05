@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:kasie_transie_web/blocs/stream_bloc.dart';
+import 'package:kasie_transie_web/data/dispatch_record.dart';
 import 'package:kasie_transie_web/utils/functions.dart';
 import 'package:kasie_transie_web/widgets/timer_widget.dart';
 
@@ -20,8 +22,7 @@ class AssociationCountsWidget extends StatefulWidget {
     required this.departures,
     required this.heartbeats,
     required this.lastUpdated,
-    required this.date,
-    this.color,
+    this.color, required this.minutes,
   }) : super(key: key);
 
   final Color? color;
@@ -32,8 +33,9 @@ class AssociationCountsWidget extends StatefulWidget {
       arrivals,
       departures,
       heartbeats,
-      lastUpdated,
-      date;
+      lastUpdated;
+
+  final int minutes;
 
   @override
   State<AssociationCountsWidget> createState() =>
@@ -44,9 +46,12 @@ class _AssociationCountsWidgetState extends State<AssociationCountsWidget> {
   final mm = ' 🔆🔆🔆🔆🔆🔆 AssociationCountsWidget: 😡';
   bool busy = false;
 
+  late StreamSubscription<DispatchRecord> _subscription;
+
   @override
   void initState() {
     super.initState();
+    _listen();
     _handleData();
     startTimer();
   }
@@ -54,24 +59,38 @@ class _AssociationCountsWidgetState extends State<AssociationCountsWidget> {
   AssociationCounts? associationCounts;
   late Timer timer;
   int totalPassengers = 0;
+ String? date;
+  void _listen() async {
+    _subscription = streamBloc.dispatchStream.listen((event) {
+      pp('$mm ... dispatchStream delivered dispatch for ${event.vehicleReg}');
+      if (mounted) {
+        _handleData();
+      }
+    });
+  }
 
   void startTimer() {
-    timer = Timer.periodic(Duration(seconds: 300), (timer) {
-      pp('$mm ........ timer tick: ${timer.tick}');
+    pp('$mm ........ startTimer: tick every ${widget.minutes} minutes');
+
+    date = DateTime.now().toUtc().subtract(Duration(minutes: widget.minutes)).toIso8601String();
+    timer = Timer.periodic(Duration(minutes: widget.minutes), (timer) {
+      pp('$mm ........ timer tick: ${timer.tick} ... call _handleData ...');
       _handleData();
     });
   }
 
   Future<void> _handleData() async {
     pp('$mm _handleData ............................ '
-        'getting association counts ... widget.date: ${widget.date}');
+        'getting association counts ... widget.minutes: ${widget.minutes}');
+    date = DateTime.now().toUtc().subtract(Duration(minutes: widget.minutes)).toIso8601String();
+
     setState(() {
       busy = true;
     });
     try {
       final user = await prefs.getUser();
       associationCounts = await networkHandler.getAssociationCounts(
-          user!.associationId!, widget.date);
+          user!.associationId!, date!);
     } catch (e) {
       pp(e);
       if (mounted) {
@@ -109,10 +128,18 @@ class _AssociationCountsWidgetState extends State<AssociationCountsWidget> {
                           child: Column(
                             children: [
                               gapH16,
-                              Text(
-                                widget.operationsSummary,
-                                style: myTextStyleMediumLargeWithColor(context,
-                                    Theme.of(context).primaryColorLight, 20),
+                              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    widget.operationsSummary,
+                                    style: myTextStyleMediumLargeWithColor(context,
+                                        Theme.of(context).primaryColorLight, 20),
+                                  ),
+                                  gapW32,
+                                  IconButton(onPressed: (){
+                                    _handleData();
+                                  }, icon: Icon(Icons.refresh, color: getPrimaryColorLight(context),)),
+                                ],
                               ),
                               gapH16,
                               Card(
@@ -237,8 +264,8 @@ class _AssociationCountsWidgetState extends State<AssociationCountsWidget> {
                                 style: myTextStyleSmall(context),
                               ),
                               gapH8,
-                              Text(
-                                widget.date,
+                              date == null? gapW32: Text(
+                                date!,
                                 style: myTextStyleMediumLargeWithColor(context,
                                     Theme.of(context).primaryColorLight, 14),
                               ),

@@ -8,8 +8,10 @@ import 'package:kasie_transie_web/data/user.dart';
 import 'package:kasie_transie_web/data/vehicle.dart';
 import 'package:kasie_transie_web/data/vehicle_departure.dart';
 import 'package:kasie_transie_web/data/vehicle_heartbeat.dart';
+import 'package:kasie_transie_web/network.dart';
 import 'package:kasie_transie_web/utils/emojis.dart';
 import 'package:kasie_transie_web/utils/functions.dart';
+import 'package:kasie_transie_web/utils/prefs.dart';
 import 'package:sembast/sembast.dart';
 import 'package:sembast_web/sembast_web.dart';
 
@@ -51,25 +53,15 @@ class StorageManager {
   }
 
   Future addVehicles(List<Vehicle> cars) async {
-    int cnt = 0;
-    cars.forEach((car) async {
-      final m = Map<String, Map<String, dynamic>>();
-      m[car.vehicleId!] = car.toJson();
-      final res =
-          await carStore.record(car.vehicleId!).update(db, car.toJson());
+    pp('$mm ...');
 
-      if (res == null) {
-        final res = await carStore.record(car.vehicleId!).add(db, car.toJson());
-        if (res != null) {
-          cnt++;
-        }
-      } else {
-        cnt++;
-      }
+    cars.forEach((car) async {
+        final record = await carStore.record(car.vehicleId!);
+        await record.put(db, car.toJson());
     });
     final tot3 = await carStore.count(db);
     pp('$mm ... addVehicles ${E.appleRed} ${E.appleRed} '
-        'cached  $cnt  cars: ${E.blueDot} $cnt total in store : $tot3');
+        'cached cars: ${E.blueDot} total in store : $tot3');
   }
 
   Future<Route?> getRoute(String routeId) async {
@@ -84,6 +76,49 @@ class StorageManager {
     pp('$mm ... getRoute found: ${list.length} routes');
     if (list.isNotEmpty) {
       return list.first;
+    }
+    return null;
+  }
+
+  Future<Vehicle?> getCarByRegistration(String vehicleReg) async {
+    pp('$mm ... getCarByRegistration find: $vehicleReg ');
+
+    final finder = Finder(
+      filter: Filter.equals('vehicleReg', vehicleReg),
+      sortOrders: [SortOrder('vehicleReg')],
+    );
+    final records = await carStore.find(db, finder: finder);
+    final list = records
+        .map((record) => Vehicle.fromJson(record.value))
+        .toList();
+    pp('$mm ... getCarByRegistration found: ${list.length} cars');
+    if (list.isNotEmpty) {
+      return list.first;
+    }
+    return null;
+  }
+
+  Future<User?> getUserById(String userId) async {
+    pp('$mm ... getUserById find: $userId ');
+
+    final finder = Finder(
+      filter: Filter.equals('userId', userId),
+      sortOrders: [SortOrder('userId')],
+    );
+    final records = await userStore.find(db, finder: finder);
+    final list = records
+        .map((record) => User.fromJson(record.value))
+        .toList();
+    pp('$mm ... getUserById found: ${list.length} cars');
+    if (list.isNotEmpty) {
+      return list.first;
+    } else {
+      final user = await prefs.getUser();
+      if (user != null) {
+        await networkHandler.getAssociationUsers(
+            associationId: user.associationId!, refresh: true);
+        getUserById(userId);
+      }
     }
     return null;
   }
@@ -204,6 +239,7 @@ class StorageManager {
     pp('$mm ... getRouteLandmarks found: ${list.length}');
     return list;
   }
+
   Future<List<RouteCity>> getRouteCities(String routeId) async {
     final finder = Finder(
       filter: Filter.equals('routeId', routeId),
