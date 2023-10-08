@@ -38,7 +38,13 @@ function callDartMethod(mData) {
   };
 
   // Post the message to the Dart app
-  window.parent.postMessage(message, '*');
+  //window.parent.postMessage(message, '*');
+   // Post the message to the client
+   self.clients.matchAll().then(clients => {
+      clients.forEach(client => {
+        client.postMessage(message);
+      });
+    });
 }
 
 messaging.onBackgroundMessage(function (payload) {

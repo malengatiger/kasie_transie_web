@@ -98,9 +98,7 @@ class EmailAuthSigninState extends State<EmailAuthSignin>
           user!.fcmToken = await userCred.user!.getIdToken();
           await prefs.saveUser(user!);
           pp('\n\n\n$mm ... about to pop! ..... ');
-
           if (mounted) {
-            // widget.onGoodSignIn(user!);
             Navigator.of(context).pop();
           }
         }

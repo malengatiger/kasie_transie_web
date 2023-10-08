@@ -51,7 +51,7 @@ class _UserOnboardingState extends State<UserOnboarding>
       deviceUser = await prefs.getUser();
       users = await networkHandler.getAssociationUsers(
           associationId: deviceUser!.associationId!, refresh: refresh);
-      users.sort((a,b) => a.name.compareTo(b.name));
+      users.sort((a, b) => a.name.compareTo(b.name));
       pp('$mm ... association users : ${users.length}');
     } catch (e) {
       pp(e);
@@ -60,6 +60,7 @@ class _UserOnboardingState extends State<UserOnboarding>
       busy = false;
     });
   }
+
   void _navigateToExamples() {
     navigateWithScale(FileExamples(), context);
   }
@@ -70,14 +71,23 @@ class _UserOnboardingState extends State<UserOnboarding>
     return SafeArea(
         child: Scaffold(
       appBar: AppBar(
-        title: Row(mainAxisAlignment: MainAxisAlignment.start,
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.start,
           children: [
-            deviceUser == null? gapW32:Text('${deviceUser!.associationName}',
-            style: myTextStyleMediumLargeWithColor(context, getPrimaryColor(context), 14),),
-            gapW128, gapW32,
-            Text('User Management',
-              style: myTextStyleMediumLargeWithColor(context, getPrimaryColorLight(context), 24),),
-
+            deviceUser == null
+                ? gapW32
+                : Text(
+                    '${deviceUser!.associationName}',
+                    style: myTextStyleMediumLargeWithColor(
+                        context, getPrimaryColor(context), 14),
+                  ),
+            gapW128,
+            gapW32,
+            Text(
+              'User Management',
+              style: myTextStyleMediumLargeWithColor(
+                  context, getPrimaryColorLight(context), 24),
+            ),
           ],
         ),
         actions: [
@@ -114,7 +124,9 @@ class _UserOnboardingState extends State<UserOnboarding>
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               gapH16,
-                              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   SizedBox(
                                     width: 300,
@@ -129,21 +141,30 @@ class _UserOnboardingState extends State<UserOnboarding>
                                           child: Text('Upload User File'),
                                         )),
                                   ),
-                                  IconButton(onPressed: (){
-                                    _getUsers(true);
-                                  }, icon: Icon(Icons.refresh)),
+                                  IconButton(
+                                      onPressed: () {
+                                        _getUsers(true);
+                                      },
+                                      icon: Icon(Icons.refresh)),
                                 ],
                               ),
-                              gapH32,
-                              Row(mainAxisAlignment: MainAxisAlignment.center,
+                              gapH4,
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
-                                      'Uploaded user file may be in .csv or .json file type'),
-                                  gapW32,
-                                  gapW32,
-                                  TextButton(onPressed: (){
-                                    _navigateToExamples();
-                                  }, child: Text('Examples')),
+                                    'Uploaded user file may be in .csv or .json file type',
+                                    style: myTextStyleSmall(context),
+                                  ),
+                                  IconButton(
+                                      onPressed: () {
+                                        _navigateToExamples();
+                                      },
+                                      icon: Icon(
+                                        Icons.question_mark,
+                                        size: 24,
+                                      )),
                                 ],
                               ),
                               gapH32,
@@ -151,7 +172,7 @@ class _UserOnboardingState extends State<UserOnboarding>
                                 child: UserList(
                                   users: users,
                                   onUserPicked: (u) {
-                                    pp('$mm ... user picked: ${u.name}');
+                                    pp('$mm ... user picked: ${u.name} ... should set the fucking state!!');
                                     setState(() {
                                       selectedUser = u;
                                     });
@@ -165,13 +186,20 @@ class _UserOnboardingState extends State<UserOnboarding>
                         SizedBox(
                           width: (width / 2),
                           child: UserEditor(
-                            user: selectedUser, onUserCreated: (m ) {
+                            // onFormCleared: () {
+                            //   setState(() {
+                            //     selectedUser = null;
+                            //   });
+                            // },
+                            user: selectedUser,
+                            onUserCreated: (m) {
                               pp('$mm ... user created: ${m.name} ');
                               _getUsers(false);
-                          }, onUserUpdated: (m ) {
-                            pp('$mm ... user updated: ${m.name} ');
-                            _getUsers(false);
-                          },
+                            },
+                            onUserUpdated: (m) {
+                              pp('$mm ... user updated: ${m.name} ');
+                              _getUsers(false);
+                            },
                           ),
                         ),
                       ],
@@ -201,7 +229,13 @@ class _UserOnboardingState extends State<UserOnboarding>
                   },
                 )))
               : gapW16,
-          busy? Positioned(child: Center(child: TimerWidget(title: 'Loading all users',))):gapW32
+          busy
+              ? Positioned(
+                  child: Center(
+                      child: TimerWidget(
+                  title: 'Loading all users',
+                )))
+              : gapW32
         ],
       ),
     ));

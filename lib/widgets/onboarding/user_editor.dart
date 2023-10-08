@@ -53,7 +53,6 @@ class _UserEditorState extends State<UserEditor>
         cellphoneController.text = widget.user!.cellphone!;
         emailController.text = widget.user!.email!;
         userType = widget.user!.userType;
-
         return;
       }
     }
@@ -108,7 +107,7 @@ class _UserEditorState extends State<UserEditor>
         widget.user!.firstName = firstNameController.value.text;
         widget.user!.lastName = lastNameController.value.text;
         widget.user!.email = emailController.value.text;
-        widget.user!.cellphone = firstNameController.value.text;
+        widget.user!.cellphone = cellphoneController.value.text;
         widget.user!.userType = userType;
         //
         final res = await networkHandler.updateUser(widget.user!);
@@ -153,29 +152,6 @@ class _UserEditorState extends State<UserEditor>
     });
   }
 
-  bool isValidEmail(String email) {
-    // Define a regex pattern for email validation
-    final RegExp regExp = RegExp(
-      r'^[\w-]+(\.[\w-]+)*@[\w-]+(\.[\w-]+)+$',
-      caseSensitive: false,
-      multiLine: false,
-    );
-
-    // Use the regex pattern to match the email address
-    return regExp.hasMatch(email);
-  }
-
-  bool isValidPhoneNumber(String phoneNumber) {
-    // Define a regex pattern for international phone numbers
-    final RegExp regExp = RegExp(
-      r'^\+(?:[0-9] ?){6,14}[0-9]$',
-      caseSensitive: false,
-      multiLine: false,
-    );
-
-    // Use the regex pattern to match the phone number
-    return regExp.hasMatch(phoneNumber);
-  }
 
   bool ignoreWidgetUser = false;
 
@@ -189,6 +165,7 @@ class _UserEditorState extends State<UserEditor>
       ignoreWidgetUser = true;
     });
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -227,9 +204,15 @@ class _UserEditorState extends State<UserEditor>
                                         'User Editor',
                                         style: myTextStyleMediumLarge(context, 20),
                                       ),
-                                      UserActions(onEdit: (){},
-                                          onRequestLocation: (){},
-                                          onStartMonitor: (){},
+                                      UserActions(onEdit: (){
+                                        _clearForm();
+                                      },
+                                          onRequestLocation: (){
+                                        underConstruction(context);
+                                          },
+                                          onStartMonitor: (){
+
+                                          },
                                           onSendMessage: (){},
                                           colors: [
                                             Colors.red,
@@ -238,7 +221,11 @@ class _UserEditorState extends State<UserEditor>
                                             Colors.teal,
                                             Colors.purple
                                           ],
-                                          onFindOwner: (){})
+
+                                        onPickProfilePicture: (){
+                                          pp('$mm ... onPickProfilePicture: ');
+                                          underConstruction(context);
+                                        }, showClearIcon: widget.user == null? true: false,)
                                     ],
                                   ),
                                   gapH64,
@@ -266,7 +253,7 @@ class _UserEditorState extends State<UserEditor>
                                           myTextStyleMediumLargeWithColor(
                                               context,
                                               getPrimaryColorLight(context),
-                                              24),
+                                              20),
                                       label: 'Cellphone Number',
                                       hint: 'Enter Cellphone Number',
                                       icon: Icon(Icons.phone, color: getPrimaryColor(context),)),

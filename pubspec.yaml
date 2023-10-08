@@ -61,6 +61,7 @@ dependencies:
   fl_chart: ^0.63.0
   file_picker: ^5.5.0
   animated_text_kit: ^4.2.2
+  dartz: ^0.10.1
 
 #  isar: ^3.1.0+1
 #  isar_flutter_libs: ^3.1.0+1

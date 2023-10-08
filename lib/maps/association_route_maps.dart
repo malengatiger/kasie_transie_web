@@ -423,7 +423,7 @@ class RouteDropDown extends StatelessWidget {
       items.add(DropdownMenuItem<lib.Route>(
           value: r,
           child: SizedBox(
-            // width: 600,
+            width: 600,
             child: Row(
               children: [
                 Flexible(

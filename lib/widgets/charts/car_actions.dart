@@ -7,7 +7,7 @@ class CarActions extends StatelessWidget {
       required this.onEdit,
       required this.onRequestLocation,
       required this.onStartMonitor,
-      required this.onSendMessage,  required this.colors, required this.onFindOwner})
+      required this.onSendMessage,  required this.colors, required this.onFindOwner, required this.onPickPhotos})
       : super(key: key);
 
   final Function onEdit;
@@ -15,6 +15,8 @@ class CarActions extends StatelessWidget {
   final Function onStartMonitor;
   final Function onSendMessage;
   final Function onFindOwner;
+  final Function onPickPhotos;
+
 
 
   final List<Color> colors;
@@ -29,7 +31,7 @@ class CarActions extends StatelessWidget {
           children: [
             IconButton(onPressed: () {
               onEdit();
-            }, icon: colors.isEmpty? Icon(Icons.edit): Icon(Icons.edit, color: colors[0],) ),
+            }, icon: colors.isEmpty? Icon(Icons.remove_circle): Icon(Icons.remove_circle, color: colors[0],) ),
             gapW16,
             IconButton(onPressed: () {
               onRequestLocation();
@@ -46,6 +48,11 @@ class CarActions extends StatelessWidget {
             IconButton(onPressed: () {
               onFindOwner();
             }, icon: colors.isEmpty? Icon(Icons.person): Icon(Icons.person, color: colors[4],)),
+            gapW16,
+            // IconButton(onPressed: () {
+            //   onPickPhotos();
+            // }, icon: colors.isEmpty? Icon(Icons.camera_alt_sharp):
+            // Icon(Icons.camera_alt_sharp, color: colors[5],)),
 
           ],
         ),

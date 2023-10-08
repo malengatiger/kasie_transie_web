@@ -45,10 +45,10 @@ class StorageManager {
   final factory = databaseFactoryWeb;
 
   Future initialize() async {
-    pp('\n\n$mm ... initialize StorageManager ... open sembast database ...');
+    pp('$mm ... initialize StorageManager ... open sembast database ...');
     // Open the database
     db = await factory.openDatabase('kasiedb');
-    pp('$mm ... initialize ... open sembast database ... ${E.heartBlue}'
+    pp('$mm ... initialize ... opened sembast database ... ${E.heartBlue}'
         'path: ${db.path} version: ${db.version}');
   }
 
@@ -337,14 +337,18 @@ class StorageManager {
 
   Future addHeartbeatTimeSeries(
       List<AssociationHeartbeatAggregationResult> results) async {
-    pp('$mm ... addHeartbeatTimeSeries : ${results.length}');
-    for (var value in results) {
-      final key2 = await timeSeriesStore.record(value.key);
-      await key2.put(db, value.toJson());
+    try {
+      pp('$mm ............... addHeartbeatTimeSeries : ${results.length}');
+      for (var value in results) {
+            final key2 = await timeSeriesStore.record(value.getKey()!);
+            await key2.put(db, value.toJson());
+          }
+      final tot6 = await timeSeriesStore.count(db);
+      pp('$mm ... AssociationHeartbeatAggregationResults ${E.appleRed} ${E.appleRed} '
+              'cached aggregates total in store (used count(db) : $tot6');
+    } catch (e, s) {
+      pp('$e --- $s');
     }
-    final tot6 = await timeSeriesStore.count(db);
-    pp('$mm ... AssociationHeartbeatAggregationResults ${E.appleRed} ${E.appleRed} '
-        'cached aggregates total in store (used count(db) : $tot6');
   }
 
   Future addCommuterRequest(List<CommuterRequest> requests) async {

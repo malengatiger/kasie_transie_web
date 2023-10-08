@@ -1,10 +1,9 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:html';
 
 import 'package:flutter/material.dart';
 import 'package:kasie_transie_web/data/association_bag.dart';
-import 'package:kasie_transie_web/data/association_heartbeat_aggregation_result.dart';
+import 'package:kasie_transie_web/data/association_counts.dart';
 import 'package:kasie_transie_web/email_auth_signin.dart';
 import 'package:kasie_transie_web/network.dart';
 import 'package:kasie_transie_web/utils/color_and_locale.dart';
@@ -14,19 +13,16 @@ import 'package:kasie_transie_web/utils/javascript_message_util.dart';
 import 'package:kasie_transie_web/utils/navigator_utils.dart';
 import 'package:kasie_transie_web/utils/prefs.dart';
 import 'package:kasie_transie_web/widgets/association_bag_widget.dart';
-import 'package:kasie_transie_web/widgets/car_list.dart';
 import 'package:kasie_transie_web/widgets/charts/heartbeat_line_chart.dart';
+import 'package:kasie_transie_web/widgets/charts/passenger_line_chart.dart';
 import 'package:kasie_transie_web/widgets/color_grid.dart';
-import 'package:kasie_transie_web/widgets/counts_widget.dart';
 import 'package:kasie_transie_web/widgets/dashboard_widgets/side_board.dart';
 import 'package:kasie_transie_web/widgets/days_drop_down.dart';
-import 'package:kasie_transie_web/widgets/demo_driver.dart';
 import 'package:kasie_transie_web/widgets/language_list.dart';
 import 'package:kasie_transie_web/widgets/live_activities.dart';
 import 'package:kasie_transie_web/widgets/onboarding/car_onboarding.dart';
 import 'package:kasie_transie_web/widgets/onboarding/user_onboarding.dart';
 import 'package:kasie_transie_web/widgets/timer_widget.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 import 'blocs/stream_bloc.dart';
 import 'blocs/theme_bloc.dart';
@@ -40,11 +36,16 @@ import 'data/vehicle.dart';
 import 'data/vehicle_arrival.dart';
 import 'data/vehicle_departure.dart';
 import 'data/vehicle_heartbeat.dart';
-import 'data/vehicle_heartbeat_aggregation_result.dart';
 import 'l10n/strings_helper.dart';
 import 'l10n/translation_handler.dart';
-import 'maps/association_route_maps.dart';
 import 'maps/association_route_operations.dart';
+
+StreamController<AssociationCounts> countStreamController = StreamController.broadcast();
+Stream<AssociationCounts> get associationCountsStream => countStreamController.stream;
+
+StreamController<AmbassadorPassengerCount> passengerCountStreamController = StreamController.broadcast();
+Stream<AmbassadorPassengerCount> get passengerCountStream => passengerCountStreamController.stream;
+
 
 class AssociationDashboard extends StatefulWidget {
   const AssociationDashboard({Key? key}) : super(key: key);
@@ -92,6 +93,7 @@ class _AssociationDashboardState extends State<AssociationDashboard> {
   late StreamSubscription<CommuterRequest> commuterStreamSubscription;
   late StreamSubscription<LocationRequest> locationRequestStreamSubscription;
   late StreamSubscription<LocationResponse> locationResponseStreamSubscription;
+
 
   String notRegistered =
       'You are not registered yet. Please call your administrator';
@@ -316,33 +318,6 @@ class _AssociationDashboardState extends State<AssociationDashboard> {
     // _getData(false);
   }
 
-  Future _refreshBag() async {
-    date =
-        DateTime.now().toUtc().subtract(Duration(days: days)).toIso8601String();
-    setState(() {
-      busy = true;
-    });
-    try {
-      _handleData(true);
-    } catch (e) {
-      pp(e);
-      if (mounted) {
-        showSnackBar(
-            duration: const Duration(seconds: 10),
-            backgroundColor: Colors.redAccent,
-            textStyle: const TextStyle(
-                color: Colors.white, fontWeight: FontWeight.bold),
-            message: errorGettingData == null
-                ? 'Error getting data'
-                : errorGettingData!,
-            context: context);
-      }
-    }
-    setState(() {
-      busy = false;
-    });
-  }
-
   Future _getData(bool refresh) async {
     pp('$mm ............................ getting association bag, cars and timeSeries data ....');
     try {
@@ -356,7 +331,7 @@ class _AssociationDashboardState extends State<AssociationDashboard> {
       if (user!.userId == null) {
         throw Exception('Fuck!! No User id! wtf?');
       }
-      await _handleData(refresh);
+      await handleData(refresh);
     } catch (e) {
       pp(e);
       if (mounted) {
@@ -374,13 +349,18 @@ class _AssociationDashboardState extends State<AssociationDashboard> {
     });
   }
 
-  Future<void> _handleData(bool refresh) async {
-    // final date = DateTime.now().toUtc().subtract(Duration(days: days));
-    // pp('$mm _handleData ............................ '
-    //     'getting association time series ...');
-    //
-    // cars = await networkHandler.getAssociationVehicles(
-    //     associationId: user!.associationId!, refresh: refresh);
+  Future<void> handleData(bool refresh) async {
+    try {
+      final date = DateTime.now().toUtc().subtract(Duration(minutes: days * 24 * 60 * 60));
+      pp('$mm _handleData ............................ '
+              'getting association time series ...');
+
+      final c = await networkHandler.getAssociationCounts(
+             user!.associationId!, date.toIso8601String());
+      countStreamController.sink.add(c!);
+    } catch (e, s) {
+      pp('$mm $e $s');
+    }
   }
 
   Future<void> _navigateToUserOnboarding() async {
@@ -450,31 +430,7 @@ class _AssociationDashboardState extends State<AssociationDashboard> {
                   style: myTextStyleMediumLargeWithColor(
                       context, getPrimaryColorLight(context), 24),
                 ),
-                gapW32,
-                gapW32,
-                Text(
-                  'History for all data',
-                  style: myTextStyleSmall(context),
-                ),
-                gapW16,
-                Text(
-                  '$days',
-                  style: myTextStyleMediumLargeWithColor(
-                      context, Theme.of(context).primaryColor, 20),
-                ),
-                gapW32,
-                DaysDropDown(
-                    onDaysPicked: (d) {
-                      setState(() {
-                        days = d;
-                        date = DateTime.now()
-                            .toUtc()
-                            .subtract(Duration(days: days))
-                            .toIso8601String();
-                      });
-                      _refreshBag();
-                    },
-                    hint: daysText == null ? 'Days' : daysText!),
+
               ],
             ),
             actions: [
@@ -566,7 +522,7 @@ class _AssociationDashboardState extends State<AssociationDashboard> {
                               padding: const EdgeInsets.all(16.0),
                               child: SizedBox(
                                   height: 540,
-                                  child: AssociationHeartbeatChart(
+                                  child: PassengerLineChart(
                                     numberOfDays: days,
                                   )),
                             ),
@@ -589,7 +545,6 @@ class _AssociationDashboardState extends State<AssociationDashboard> {
                     child: dispatchesText == null
                         ? gapW32
                         : AssociationCountsWidget(
-                            color: Theme.of(context).cardColor,
                             width: width,
                             operationsSummary: 'Operations Summary',
                             dispatches: dispatchesText!,
@@ -597,8 +552,7 @@ class _AssociationDashboardState extends State<AssociationDashboard> {
                             arrivals: arrivalsText!,
                             departures: departuresText!,
                             heartbeats: heartbeatText!,
-                            lastUpdated: cutoffDate.toIso8601String(),
-                            minutes: days * 60 * 60),
+                            ),
                   ),
                 ],
               ),

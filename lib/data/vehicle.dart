@@ -4,6 +4,8 @@ part 'vehicle.g.dart';
 
 @JsonSerializable(explicitToJson: true)
 class Vehicle {
+  @JsonKey(name: '_id')
+  String? id;
   String? vehicleId;
   String? countryId, ownerName, ownerId;
   String? created, dateInstalled;
@@ -16,6 +18,7 @@ class Vehicle {
   String? associationId, associationName;
 
   Vehicle({
+      this.id,
       required this.vehicleId,
       required this.countryId,
       required this.ownerName,

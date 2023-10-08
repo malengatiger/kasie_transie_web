@@ -1,10 +1,5 @@
-
-
 import 'dart:async';
 import 'dart:convert';
-
-import 'package:firebase_messaging/firebase_messaging.dart';
-
 import '../data/ambassador_passenger_count.dart';
 import '../data/commuter_request.dart';
 import '../data/dispatch_record.dart';
@@ -22,128 +17,81 @@ import '../utils/functions.dart';
 final StreamBloc streamBloc = StreamBloc();
 
 class StreamBloc {
-  final mm = '${E.broc}${E.broc}${E.broc}${E.broc} StreamBloc: ${E.broc}${E.broc}';
+  final mm =
+      '${E.broc}${E.broc}${E.broc}${E.broc} StreamBloc: ${E.broc}${E.broc}';
 
   StreamBloc() {
     pp('$mm ......... StreamBloc constructor ... ${E.appleRed}');
   }
 
-  void processFCMessage(Map<String, dynamic> data) {
-    final type = getMessageType(data);
-    pp('$mm ... processFCMessage: message type: ${E.blueDot}${E.blueDot}${E.blueDot} $type');
+  void processFCMessage(Map<String, dynamic> map) {
+    //myPrettyJsonPrint(map);
+    final type = map['type'];
+    pp('$mm ... process FCM message: message type: ${E.blueDot}${E.blueDot}${E.blueDot} $type');
 
-    switch (type) {
-      case Constants.heartbeat:
-        final json = jsonDecode(data[type]);
-        final m = VehicleHeartbeat.fromJson(json);
-        _heartbeatStreamController.sink.add(m);
-        break;
-      case Constants.locationResponse:
-        final json = jsonDecode(data[type]);
-        final m = LocationResponse.fromJson(json);
-        _locationResponseStreamController.sink.add(m);
-        break;
-      case Constants.dispatchRecord:
-        final json = jsonDecode(data[type]);
-        final m = DispatchRecord.fromJson(json);
-        _dispatchStreamController.sink.add(m);
-        break;
-      case Constants.vehicleArrival:
-        final json = jsonDecode(data[type]);
-        final m = VehicleArrival.fromJson(json);
-        _vehicleArrivalStreamController.sink.add(m);
-        break;
-      case Constants.vehicleChanges:
-        //todo - implement vehicle changes message
-        break;
-      case Constants.vehicleDeparture:
-        final json = jsonDecode(data[type]);
-        final m = VehicleDeparture.fromJson(json);
-        _vehicleDepartureStreamController.sink.add(m);
-        break;
-      case Constants.vehicleMediaRequest:
-        final json = jsonDecode(data[type]);
-        final m = VehicleMediaRequest.fromJson(json);
-        _vehicleMediaRequestStreamController.sink.add(m);
-        break;
-      case Constants.passengerCount:
-        final json = jsonDecode(data[type]);
-        final m = AmbassadorPassengerCount.fromJson(json);
-        _passengerCountStreamController.sink.add(m);
-        break;
-      case Constants.commuterRequest:
-        final json = jsonDecode(data[type]);
-        final m = CommuterRequest.fromJson(json);
-        _commuterRequestStreamController.sink.add(m);
-        break;
-      case Constants.locationRequest:
-        final json = jsonDecode(data[type]);
-        final m = LocationRequest.fromJson(json);
-        _locationRequestStreamController.sink.add(m);
-        break;
-      case Constants.routeUpdateRequest:
-        final json = jsonDecode(data[type]);
-        final m = RouteUpdateRequest.fromJson(json);
-        _routeUpdateRequestStreamController.sink.add(m);
-        //todo - go ahead and refresh the route
-        break;
-      case Constants.userGeofenceEvent:
-        //todo - implement userGeofenceEvent messaging - HOT, may not do it!
-        break;
-      default:
-        pp('${E.redDot}${E.redDot}${E.redDot} Unknown type: please check: $data');
+    try {
+      final json = jsonDecode(map['data']);
+      //myPrettyJsonPrint(json);
+      switch (type) {
+        case Constants.heartbeat:
+          final m = VehicleHeartbeat.fromJson(json);
+          _heartbeatStreamController.sink.add(m);
+          return;
+        case Constants.locationResponse:
+          final m = LocationResponse.fromJson(json);
+          _locationResponseStreamController.sink.add(m);
+          return;
+        case Constants.dispatchRecord:
+          final m = DispatchRecord.fromJson(json);
+          _dispatchStreamController.sink.add(m);
+          return;
+        case Constants.vehicleArrival:
+          final m = VehicleArrival.fromJson(json);
+          _vehicleArrivalStreamController.sink.add(m);
+          return;
+        case Constants.vehicleChanges:
+          //todo - implement vehicle changes message
+          return;
+        case Constants.vehicleDeparture:
+          final m = VehicleDeparture.fromJson(json);
+          _vehicleDepartureStreamController.sink.add(m);
+          return;
+        case Constants.vehicleMediaRequest:
+          final m = VehicleMediaRequest.fromJson(json);
+          _vehicleMediaRequestStreamController.sink.add(m);
+          return;
+        case Constants.passengerCount:
+          final m = AmbassadorPassengerCount.fromJson(json);
+          _passengerCountStreamController.sink.add(m);
+          return;
+        case Constants.commuterRequest:
+          final m = CommuterRequest.fromJson(json);
+          _commuterRequestStreamController.sink.add(m);
+          return;
+        case Constants.locationRequest:
+          final m = LocationRequest.fromJson(json);
+          _locationRequestStreamController.sink.add(m);
+          return;
+        case Constants.routeUpdateRequest:
+          final m = RouteUpdateRequest.fromJson(json);
+          _routeUpdateRequestStreamController.sink.add(m);
+          //todo - go ahead and refresh the route
+          return;
+        case Constants.userGeofenceEvent:
+          //todo - implement userGeofenceEvent messaging - HOT, may not do it!
+          return;
+        default:
+          pp('${E.redDot}${E.redDot}${E.redDot} Unknown type: please check: $json');
+      }
+    } catch (e, s) {
+      pp('ERROR: ${E.redDot}${E.redDot}${E.redDot} $e - $s');
     }
   }
 
   String getMessageType(Map<dynamic, dynamic> message) {
-    var type = '';
-    if (message[Constants.routeUpdateRequest] != null) {
-      //pp("$mm onMessage: $red routeChanges message has arrived!  ... $red ");
-      type = Constants.routeUpdateRequest;
-    } else if (message[Constants.vehicleChanges] != null) {
-      //pp("$mm onMessage: $red vehicleChanges message has arrived!  ... $red ");
-      type = Constants.vehicleChanges;
-    } else if (message[Constants.locationRequest] != null) {
-      //pp("$mm onMessage: $red locationRequest message has arrived!  ... $red ");
-      type = Constants.locationRequest;
-    } else if (message[Constants.locationResponse] != null) {
-      //pp("$mm onMessage: $red locationResponse message has arrived!  ... $red ");
-      type = Constants.locationResponse;
-    } else if (message[Constants.vehicleArrival] != null) {
-      //pp("$mm onMessage: $red vehicleArrival message has arrived!  ... $red\n ");
-      type = Constants.vehicleArrival;
-    } else if (message[Constants.vehicleDeparture] != null) {
-      //pp("$mm onMessage: $red vehicleDeparture message has arrived!  ... $red ");
-      type = Constants.vehicleDeparture;
-    } else if (message[Constants.dispatchRecord] != null) {
-      //pp("$mm onMessage: $red dispatchRecord message has arrived!  ... $red ");
-      type = Constants.dispatchRecord;
-    } else if (message[Constants.userGeofenceEvent] != null) {
-      //pp("$mm onMessage: $red userGeofenceEvent message has arrived!  ... $red ");
-      type = Constants.userGeofenceEvent;
-    } else if (message[Constants.vehicleMediaRequest] != null) {
-      //pp("$mm onMessage: $red vehicleMediaRequest message has arrived!  ... $red ");
-      type = Constants.vehicleMediaRequest;
-    } else if (message[Constants.passengerCount] != null) {
-      //pp("$mm onMessage: $red passengerCount message has arrived!  ... $red ");
-      type = Constants.passengerCount;
-    } else if (message[Constants.heartbeat] != null) {
-      //pp("$mm onMessage: $red heartbeat message has arrived!  ... $red ");
-      type = Constants.heartbeat;
-    } else if (message[Constants.commuterRequest] != null) {
-      //pp("$mm onMessage: $red commuterRequest message has arrived!  ... $red ");
-      type = Constants.commuterRequest;
-    } else if (message[Constants.dispatchRecord] != null) {
-      //pp("$mm onMessage: $red commuterRequest message has arrived!  ... $red ");
-      type = Constants.dispatchRecord;
-    } else if (message[Constants.routeUpdateRequest] != null) {
-      //pp("$mm onMessage: $red routeUpdateRequest message has arrived!  ... $red ");
-      type = Constants.routeUpdateRequest;
-    } else {
-      pp("$mm onMessage: unknown message has arrived!  ...");
-      myPrettyJsonPrint(message);
-      return 'unknown';
-    }
+    var type = message['type'];
+    pp('${E.redDot}${E.redDot}${E.redDot} message type arrived:  $type');
+
     return type;
   }
 

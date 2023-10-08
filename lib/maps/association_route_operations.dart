@@ -41,7 +41,6 @@ import '../widgets/language_list.dart';
 import '../widgets/timer_widget.dart';
 import 'cluster_maps/dispatch_cluster_map.dart';
 
-
 class AssociationRouteOperations extends StatefulWidget {
   const AssociationRouteOperations({
     Key? key,
@@ -53,10 +52,12 @@ class AssociationRouteOperations extends StatefulWidget {
   final double? latitude, longitude, radiusInMetres;
 
   @override
-  AssociationRouteOperationsState createState() => AssociationRouteOperationsState();
+  AssociationRouteOperationsState createState() =>
+      AssociationRouteOperationsState();
 }
 
-class AssociationRouteOperationsState extends State<AssociationRouteOperations> {
+class AssociationRouteOperationsState
+    extends State<AssociationRouteOperations> {
   static const defaultZoom = 14.0;
   final Completer<GoogleMapController> _mapController = Completer();
 
@@ -172,7 +173,8 @@ class AssociationRouteOperationsState extends State<AssociationRouteOperations> 
       }
     });
 
-    heartbeatStreamSubscription = streamBloc.heartbeatStreamStream.listen((event) {
+    heartbeatStreamSubscription =
+        streamBloc.heartbeatStreamStream.listen((event) {
       pp('$mm heartbeatStreamStream delivered event ... ${E.heartBlue} ');
       heartbeats.add(event);
       _addHeartbeatToHash(event);
@@ -197,7 +199,8 @@ class AssociationRouteOperationsState extends State<AssociationRouteOperations> 
         setState(() {});
       }
     });
-    passengerStreamSubscription = streamBloc.passengerCountStream.listen((event) {
+    passengerStreamSubscription =
+        streamBloc.passengerCountStream.listen((event) {
       pp('$mm ... passengerCountStream delivered. ');
       if (mounted) {
         setState(() {});
@@ -284,15 +287,16 @@ class AssociationRouteOperationsState extends State<AssociationRouteOperations> 
       date = await getFmtDate(
           DateTime.now().toIso8601String(), cl.locale, context);
       _filter();
-
     } catch (e) {
       pp(e.toString());
       showToast(
           backgroundColor: Colors.red,
-          textStyle: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          textStyle:
+              TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           padding: 24,
           duration: Duration(seconds: 5),
-          message: stringsHelper!.serverUnreachable, context: context);
+          message: stringsHelper!.serverUnreachable,
+          context: context);
     }
     setState(() {
       busy = false;
@@ -356,8 +360,8 @@ class AssociationRouteOperationsState extends State<AssociationRouteOperations> 
 
   Future<void> _zoomToHeartbeat(VehicleHeartbeat hb) async {
     try {
-      final latLng =
-              LatLng(hb.position!.coordinates!.last, hb.position!.coordinates!.first);
+      final latLng = LatLng(
+          hb.position!.coordinates!.last, hb.position!.coordinates!.first);
       var cameraPos = CameraPosition(target: latLng, zoom: 16.0);
       final GoogleMapController controller = await _mapController.future;
       controller.animateCamera(CameraUpdate.newCameraPosition(cameraPos));
@@ -365,7 +369,6 @@ class AssociationRouteOperationsState extends State<AssociationRouteOperations> 
       pp(e);
     }
     setState(() {});
-
   }
 
   int index = 0;
@@ -526,9 +529,14 @@ class AssociationRouteOperationsState extends State<AssociationRouteOperations> 
           context);
     }
   }
-  
+
   void _navigateToDemoDriver() async {
-    navigateWithScale(DemoDriver(routes: routesPicked, associationId: user!.associationId!,), context);
+    navigateWithScale(
+        DemoDriver(
+          routes: routesPicked,
+          associationId: user!.associationId!,
+        ),
+        context);
   }
 
   void _navigateToRouteMaps() async {
@@ -546,12 +554,13 @@ class AssociationRouteOperationsState extends State<AssociationRouteOperations> 
       }
 
       pp('$mm ... navigating with ${commuterRequestCovers.length} commuter requests');
-      navigateWithScale(DispatchAndCommuterRequestClusterMap(
-        routeBags: bags,
-        date: date,
-      ), context);
+      navigateWithScale(
+          DispatchAndCommuterRequestClusterMap(
+            routeBags: bags,
+            date: date,
+          ),
+          context);
     }
-
   }
 
   @override
@@ -713,7 +722,8 @@ class AssociationRouteOperationsState extends State<AssociationRouteOperations> 
           ),
           Positioned(
               child: LiveDisplay(
-                  width: 840, height: 180,
+            width: 840,
+            height: 180,
             backgroundColor: Colors.black12,
             cutoffDate:
                 DateTime.now().toUtc().subtract(Duration(minutes: minutes)),
@@ -754,7 +764,6 @@ class AssociationRouteOperationsState extends State<AssociationRouteOperations> 
                       )),
                 ),
               )),
-
           _showBag
               ? Positioned(
                   right: 8,
@@ -763,14 +772,14 @@ class AssociationRouteOperationsState extends State<AssociationRouteOperations> 
                       ? gapW32
                       : AssociationCountsWidget(
                           width: 440,
-                          minutes: minutes,
                           operationsSummary: stringsHelper!.operationsSummary,
                           dispatches: stringsHelper!.dispatchesText,
                           passengers: stringsHelper!.passengers,
                           arrivals: stringsHelper!.arrivalsText,
                           departures: stringsHelper!.departuresText,
                           heartbeats: stringsHelper!.heartbeats,
-                          lastUpdated: stringsHelper!.timeLastUpdate))
+                        ),
+                )
               : gapW32,
           _showColorSheet
               ? Positioned(

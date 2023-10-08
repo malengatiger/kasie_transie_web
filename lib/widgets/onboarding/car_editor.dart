@@ -54,11 +54,7 @@ class _CarEditorState extends State<CarEditor>
       setState(() {
         busy = true;
       });
-      try {
-        owner = await storageManager.getUserById(widget.car!.ownerId!);
-      } catch (e) {
-        pp(e);
-      }
+      owner = await storageManager.getUserById(widget.car!.ownerId!);
       setState(() {
         busy = false;
       });
@@ -84,7 +80,6 @@ class _CarEditorState extends State<CarEditor>
         return;
       }
     }
-    pp('$mm ... _buildExisting has no car ...');
   }
 
   @override
@@ -133,7 +128,6 @@ class _CarEditorState extends State<CarEditor>
             backgroundColor: Colors.red);
         return;
       }
-
       if (widget.car != null) {
         widget.car!.vehicleReg = vehicleRegController.value.text;
         widget.car!.make = makeController.value.text;
@@ -179,7 +173,6 @@ class _CarEditorState extends State<CarEditor>
           showToast(
               message: 'Vehicle added to database',
               context: context,
-              textStyle: myTextStyleMediumLargeWithColor(context, Colors.white, 18),
               padding: 28);
         }
       }
@@ -213,6 +206,7 @@ class _CarEditorState extends State<CarEditor>
     makeController = TextEditingController();
     modelController = TextEditingController();
     capacityController = TextEditingController();
+    yearController = TextEditingController();
     setState(() {
       ignoreWidgetUser = true;
     });
@@ -220,8 +214,7 @@ class _CarEditorState extends State<CarEditor>
 
   @override
   Widget build(BuildContext context) {
-    pp('$mm ... build method : ...... ');
-    _buildExisting();
+
     return Stack(
       children: [
         Center(
@@ -278,7 +271,7 @@ class _CarEditorState extends State<CarEditor>
                                           setState(() {
                                             _showOwners = true;
                                           });
-                                        },
+                                        }, onPickPhotos: (){},
                                       )
                                     ],
                                   ),
@@ -307,31 +300,31 @@ class _CarEditorState extends State<CarEditor>
                                       controller: vehicleRegController,
                                       label: 'Registration',
                                       hint: 'Enter Registration',
-                                      icon: Icon(Icons.person)),
+                                      icon: Icon(Icons.person, color: getPrimaryColor(context),)),
                                   gapH16,
                                   MyFormField(
                                       controller: makeController,
                                       label: 'Make',
                                       hint: 'Enter Make',
-                                      icon: Icon(Icons.person)),
+                                      icon: Icon(Icons.person, color: getPrimaryColor(context),)),
                                   gapH16,
                                   MyFormField(
                                       controller: modelController,
                                       label: 'Model',
                                       hint: 'Enter Model',
-                                      icon: Icon(Icons.email)),
+                                      icon: Icon(Icons.email, color: getPrimaryColor(context),)),
                                   gapH16,
                                   MyFormField(
                                       controller: capacityController,
                                       label: 'Capacity',
                                       hint: 'Enter Capacity',
-                                      icon: Icon(Icons.people)),
+                                      icon: Icon(Icons.people, color: getPrimaryColor(context),)),
                                   gapH16,
                                   MyFormField(
                                       controller: yearController,
                                       label: 'Model Year',
                                       hint: 'Enter Model Year',
-                                      icon: Icon(Icons.calendar_month)),
+                                      icon: Icon(Icons.calendar_month, color: getPrimaryColor(context),)),
                                   gapH16,
                                   gapH32,
                                   SizedBox(

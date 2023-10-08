@@ -29,6 +29,38 @@ pp(dynamic msg) {
     }
   }
 }
+underConstruction(BuildContext context) {
+  showToast(
+      backgroundColor: Colors.brown,
+      padding: 28,
+      textStyle: myTextStyleMediumLargeWithColor(context, Colors.white, 20),
+      duration: Duration(seconds: 3),
+      message: 'Under Construction', context: context);
+}
+bool isValidEmail(String email) {
+  // Define a regex pattern for email validation
+  final RegExp regExp = RegExp(
+    r'^[\w-]+(\.[\w-]+)*@[\w-]+(\.[\w-]+)+$',
+    caseSensitive: false,
+    multiLine: false,
+  );
+
+  // Use the regex pattern to match the email address
+  return regExp.hasMatch(email);
+}
+
+bool isValidPhoneNumber(String phoneNumber) {
+  // Define a regex pattern for international phone numbers
+  final RegExp regExp = RegExp(
+    r'^\+(?:[0-9] ?){6,14}[0-9]$',
+    caseSensitive: false,
+    multiLine: false,
+  );
+
+  // Use the regex pattern to match the phone number
+  return regExp.hasMatch(phoneNumber);
+}
+
 Color getPrimaryColor(BuildContext context) {
   return Theme.of(context).primaryColor;
 }

@@ -7,10 +7,13 @@ import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:kasie_transie_web/data/ambassador_passenger_count.dart';
 import 'package:kasie_transie_web/data/association_counts.dart';
 import 'package:kasie_transie_web/data/custom_response.dart';
 import 'package:kasie_transie_web/data/example_file.dart';
 import 'package:kasie_transie_web/data/generation_request.dart';
+import 'package:kasie_transie_web/data/passenger_aggregate.dart';
+import 'package:kasie_transie_web/data/route_landmark.dart';
 import 'package:kasie_transie_web/data/user.dart';
 import 'package:kasie_transie_web/data/vehicle.dart';
 import 'package:kasie_transie_web/data/vehicle_heartbeat.dart';
@@ -19,8 +22,11 @@ import 'package:kasie_transie_web/utils/functions.dart';
 
 import 'data/association_bag.dart';
 import 'data/association_heartbeat_aggregation_result.dart';
+import 'data/route.dart';
 import 'data/route_bag.dart';
 import 'data/route_bag_list.dart';
+import 'data/route_city.dart';
+import 'data/route_point.dart';
 import 'environment.dart';
 import 'kasie_exception.dart';
 import 'local_storage/storage_manager.dart';
@@ -373,6 +379,30 @@ class NetworkHandler {
         '\n ${E.appleGreen} dispatchRecords: ${bag.dispatchRecords.length}');
   }
 
+  Future<List<PassengerAggregate>> getPassengerTimeSeries(
+      {required String associationId,
+      required String routeId,
+      required String startDate}) async {
+    final token = await getAuthToken();
+    if (token == null) {
+      pp('$xyz token is null, quit! ${E.redDot}${E.redDot}${E.redDot}');
+      return [];
+    } else {
+      pp('$xyz token is just fine! ${E.heartRed}');
+    }
+    final url = '${KasieEnvironment.getUrl()}getPassengerTimeSeries?'
+        'associationId=$associationId'
+        '&routeId=$routeId'
+        '&startDate=$startDate';
+
+    List res = await httpGet(url, token);
+    List<PassengerAggregate> list = [];
+    res.forEach((element) {
+      list.add(PassengerAggregate.fromJson(element));
+    });
+    return list;
+  }
+
   Future<List<AssociationHeartbeatAggregationResult>>
       getAssociationHeartbeatTimeSeries(
           String associationId, String startDate) async {
@@ -421,8 +451,24 @@ class NetworkHandler {
     return list;
   }
 
-  Future getAssociationAmbassadorPassengerCounts(
-      String associationId, String startDate) async {}
+  Future<List<AmbassadorPassengerCount>> getAssociationAmbassadorPassengerCounts(
+      String associationId, String startDate) async {
+    final token = await _getToken();
+    List<AmbassadorPassengerCount> counts = [];
+    var start = DateTime.now();
+    final url =
+        '${KasieEnvironment.getUrl()}getAssociationAmbassadorPassengerCounts?associationId=$associationId&startDate=$startDate';
+    List json = await httpGet(url, token!);
+
+    for (var pc in json) {
+      counts.add(AmbassadorPassengerCount.fromJson(pc));
+    }
+    var end = DateTime.now();
+    pp('$xyz getAssociationAmbassadorPassengerCounts elapsed seconds: 🔆🔆🔆 '
+        '${end.difference(start).inSeconds} ... found: ${counts.length}');
+
+    return counts;
+  }
 
   Future getAssociationVehicleHeartbeats(
       String associationId, String startDate) async {}
@@ -489,63 +535,108 @@ class NetworkHandler {
       {required String associationId, required bool refresh}) async {
     pp('$xyz _getRouteBag: 🔆🔆🔆 get zipped data ...');
 
-    if (refresh) {
-      var start = DateTime.now();
-      List<RouteBag> bags = [];
-      final token = await getAuthToken();
-      if (token == null) {
-        pp('$xyz token is null, quit! ${E.redDot}${E.redDot}${E.redDot}');
-        return [];
-      }
-      final mUrl = '${KasieEnvironment.getUrl()}'
-          'getAssociationRouteZippedFile?associationId=$associationId';
-
-      final bodyBytes = await _httpGetZippedData(mUrl, token);
-      pp('$xyz _getRouteBag: 🔆🔆🔆 get zipped data, bodyBytes: ${bodyBytes.length} bytes ...');
-
-      final Archive archive = ZipDecoder().decodeBytes(bodyBytes);
-      // pp('$xyz ... do we have a file? ${archive.files.length} files in archive');
-      // pp('$xyz _getRouteBag: 🔆🔆🔆 handle file inside zip: ${archive.length} bytes');
-
-      for (var file in archive.files) {
-        if (file.isFile) {
-          // pp('$xyz getRouteBags: file from inside archive ... ${file.size} '
-          //     'bytes 🔵 isCompressed: ${file.isCompressed} 🔵 zipped file name: ${file.name}');
-          final content = file.content;
-          final x = utf8.decode(content);
-          final mJson = jsonDecode(x);
-          final bagList = RouteBagList.fromJson(mJson);
-          var end = DateTime.now();
-          var ms = end.difference(start).inSeconds;
-          pp('$xyz _getRouteBag 🍎🍎🍎🍎 work is done!, elapsed seconds: 🍎$ms 🍎bags done: ${bags.length}\n\n');
-          storageManager.addRoutes(bagList.routeBags);
-          return bagList.routeBags;
+    try {
+      if (refresh) {
+        var start = DateTime.now();
+        List<RouteBag> bags = [];
+        final token = await getAuthToken();
+        if (token == null) {
+          pp('$xyz token is null, quit! ${E.redDot}${E.redDot}${E.redDot}');
+          return [];
         }
-      }
-    } else {
-      pp('$xyz ..getRouteBags - ....... build routeBags from local cache ...');
-      final rbList = <RouteBag>[];
-      final routeList = await storageManager.getRoutes();
-      for (var value in routeList) {
-        final points = await storageManager.getRoutePoints(value.routeId!);
-        final marks = await storageManager.getRouteLandmarks(value.routeId!);
-        final route = await storageManager.getRoute(value.routeId!);
-        final cities = await storageManager.getRouteCities(value.routeId!);
+        final mUrl = '${KasieEnvironment.getUrl()}'
+            'getAssociationRouteZippedFile?associationId=$associationId';
 
-        rbList.add(RouteBag(
-            route: route,
-            routeLandmarks: marks,
-            routePoints: points,
-            routeCities: cities));
-      }
-      pp('$xyz ..getRouteBags - routeBags built '
-          'from local cache ${E.blueDot} ${rbList.length}');
+        final bodyBytes = await _httpGetZippedData(mUrl, token);
+        pp('$xyz _getRouteBag: 🔆🔆🔆 get zipped data, bodyBytes: ${bodyBytes.length} bytes ...');
 
-      if (rbList.isEmpty) {
-        return await getRouteBags(associationId: associationId, refresh: true);
-      }
+        final Archive archive = ZipDecoder().decodeBytes(bodyBytes);
 
-      return rbList;
+        for (var file in archive.files) {
+          if (file.isFile) {
+            // pp('$xyz getRouteBags: file from inside archive ... ${file.size} '
+            //     'bytes 🔵 isCompressed: ${file.isCompressed} 🔵 zipped file name: ${file.name}');
+            final content = file.content;
+            final x = utf8.decode(content);
+            final mJson = jsonDecode(x);
+            List routesJson = mJson['routes'];
+            List landmarksJson = mJson['landmarks'];
+            List pointsJson = mJson['points'];
+            final RouteBagList bagList = RouteBagList([]);
+            final List<Route> routes = [];
+            routesJson.forEach((element) {
+              routes.add(Route.fromJson(element));
+            });
+            for (var r in routes) {
+              final List<RouteLandmark> marks = [];
+              for (var value in landmarksJson) {
+                List list = value as List;
+                for (var m in list) {
+                  if (m['routeId'] == r.routeId) {
+                    marks.add(RouteLandmark.fromJson(m));
+                  }
+                }
+              }
+              final List<RoutePoint> points = [];
+              for (var value in pointsJson) {
+                List list = value as List;
+               for (var p in list) {
+                 if (p['routeId'] == r.routeId) {
+                   points.add(RoutePoint.fromJson(p));
+                 }
+               }
+              }
+              final List<RouteCity> cities = [];
+              for (var value in pointsJson) {
+                List list = value as List;
+                for (var c in list) {
+                  if (c['routeId'] == r.routeId) {
+                    cities.add(RouteCity.fromJson(c));
+                  }
+                }
+              }
+              final rb = RouteBag(route: r,
+                  routeLandmarks: marks,
+                  routePoints: points,
+                  routeCities: cities);
+              bagList.routeBags.add(rb);
+            }
+
+            var end = DateTime.now();
+            var ms = end.difference(start).inSeconds;
+            pp('$xyz _getRouteBag 🍎🍎🍎🍎 work is done!, elapsed seconds: 🍎$ms 🍎bags done: ${bags.length}\n\n');
+            storageManager.addRoutes(bagList.routeBags);
+            return bagList.routeBags;
+          }
+        }
+      } else {
+        pp('$xyz ..getRouteBags - ....... build routeBags from local cache ...');
+        final rbList = <RouteBag>[];
+        final routeList = await storageManager.getRoutes();
+        for (var value in routeList) {
+          final points = await storageManager.getRoutePoints(value.routeId!);
+          final marks = await storageManager.getRouteLandmarks(value.routeId!);
+          final route = await storageManager.getRoute(value.routeId!);
+          final cities = await storageManager.getRouteCities(value.routeId!);
+
+          rbList.add(RouteBag(
+              route: route,
+              routeLandmarks: marks,
+              routePoints: points,
+              routeCities: cities));
+        }
+        pp('$xyz ..getRouteBags - routeBags built '
+            'from local cache ${E.blueDot} ${rbList.length}');
+
+        if (rbList.isEmpty) {
+          return await getRouteBags(
+              associationId: associationId, refresh: true);
+        }
+
+        return rbList;
+      }
+    } catch (e, s) {
+      pp('$e $s');
     }
     throw Exception('Something went wrong');
   }

@@ -40,7 +40,7 @@ class JavascriptMessageUtil {
       window.onMessage.listen((event) {
         final dynamic message = event.data;
         pp('$mm .......................................${E.redDot}'
-            ' message received, will be shipped to FCMBloc');
+            ' message received, will be shipped to StreamBloc');
         final m = message['mData']['data'];
         streamBloc.processFCMessage(_convertDynamicMap(m));
       });

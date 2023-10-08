@@ -168,7 +168,7 @@
       console.log('index.html:🔴 🔴 🔴 ... sendTokenToServer: Kasie here we come! ........');
 
       //   // Replace this with your server endpoint
-      const serverUrl = 'http://localhost:8080/addAssociationToken?associationId=' + associationId + '&token=' + token + '&userId=' + userId;
+      const serverUrl = 'http://localhost:5050/api/v1/addAssociationToken?associationId=' + associationId + '&token=' + token + '&userId=' + userId;
 
       // Make a GET request to send the token to KasieTransie backend
       fetch(serverUrl, {

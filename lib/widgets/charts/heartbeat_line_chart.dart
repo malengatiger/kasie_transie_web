@@ -15,7 +15,8 @@ import 'my_chart_data.dart';
 
 class AssociationHeartbeatChart extends StatefulWidget {
   const AssociationHeartbeatChart({
-    super.key, required this.numberOfDays,
+    super.key,
+    required this.numberOfDays,
   });
 
   final int numberOfDays;
@@ -83,46 +84,50 @@ class _AssociationHeartbeatChartState extends State<AssociationHeartbeatChart> {
       int count = 0;
       var delta = 0;
       spots.clear();
-      if (timeSeriesResults.length < 24) {
-        delta = 24 - timeSeriesResults.length;
-        pp('$mm ... _buildSpots: ... timeSeriesResults: ${timeSeriesResults.length} delta: $delta');
-        for (var i = 0; i < delta; i++) {
-          spots.add(FlSpot(0.0 + i.toDouble(), 0.0));
-        }
-      }
-      pp('$mm ... _buildSpots: ... timeSeriesResults: ${timeSeriesResults.length} spots: ${spots.length}');
-      if (timeSeriesResults.length > 24) {
-        delta = timeSeriesResults.length - 24;
-        final list = timeSeriesResults
-            .getRange(delta, timeSeriesResults.length - 1)
-            .toList();
-        for (var value in list) {
-          setSpot(value, count);
-          count++;
-          if (count > 24) {
-            break;
+      if (timeSeriesResults.length == 0) {
+        pp('$mm ... _buildSpots: timeSeriesResults no mas! is zero!');
+      } else {
+        if (timeSeriesResults.length < 24) {
+          delta = 24 - timeSeriesResults.length;
+          pp('$mm ... _buildSpots: ... timeSeriesResults: ${timeSeriesResults.length} delta: $delta');
+          for (var i = 0; i < delta; i++) {
+            spots.add(FlSpot(0.0 + i.toDouble(), 0.0));
           }
         }
-        pp('$mm ... _buildSpots: ... spots #2: ${spots.length}');
-      } else {
-        for (var i = 0; i < timeSeriesResults.length; i++) {
-          setSpot(timeSeriesResults.elementAt(i), i + delta);
-          count++;
+        pp('$mm ... _buildSpots: ... timeSeriesResults: ${timeSeriesResults.length} spots: ${spots.length}');
+        if (timeSeriesResults.length > 24) {
+          delta = timeSeriesResults.length - 24;
+          final list = timeSeriesResults
+              .getRange(delta, timeSeriesResults.length - 1)
+              .toList();
+          for (var value in list) {
+            setSpot(value, count);
+            count++;
+            if (count > 24) {
+              break;
+            }
+          }
+          pp('$mm ... _buildSpots: ... spots #2: ${spots.length}');
+        } else {
+          for (var i = 0; i < timeSeriesResults.length; i++) {
+            setSpot(timeSeriesResults.elementAt(i), i + delta);
+            count++;
+          }
         }
-      }
-      pp('$mm ... _buildSpots: ... spots built: #3: ${spots.length}');
-      for (var spot in spots) {
-        pp('$mm ... final spot, check for all zero y: ${E.appleGreen} x: ${spot.x} y: ${spot.y}');
-      }
-      int emptyCount = 0;
-      for (var spot in spots) {
-        if (spot.y == 0.0) {
-          emptyCount++;
+        pp('$mm ... _buildSpots: ... spots built: #3: ${spots.length}');
+        for (var spot in spots) {
+          pp('$mm ... final spot, check for all zero y: ${E.appleGreen} x: ${spot.x} y: ${spot.y}');
         }
-      }
-      if (emptyCount == spots.length) {
-        pp('$mm _buildSpots ${E.blueDot} all spots y are zer0. No chart??: spots: ${spots.length}');
-        buildLastHeartbeats();
+        int emptyCount = 0;
+        for (var spot in spots) {
+          if (spot.y == 0.0) {
+            emptyCount++;
+          }
+        }
+        if (emptyCount == spots.length) {
+          pp('$mm _buildSpots ${E.blueDot} all spots y are zer0. No chart??: spots: ${spots.length}');
+          buildLastHeartbeats();
+        }
       }
     } catch (e) {
       pp(e);

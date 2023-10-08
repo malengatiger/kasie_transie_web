@@ -2,13 +2,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:kasie_transie_web/blocs/stream_bloc.dart';
-import 'package:kasie_transie_web/data/dispatch_record.dart';
+import 'package:kasie_transie_web/dashboard.dart';
+import 'package:kasie_transie_web/data/ambassador_passenger_count.dart';
 import 'package:kasie_transie_web/utils/functions.dart';
 import 'package:kasie_transie_web/widgets/timer_widget.dart';
 
 import '../data/association_counts.dart';
 import '../network.dart';
+import '../utils/emojis.dart';
 import '../utils/prefs.dart';
 
 class AssociationCountsWidget extends StatefulWidget {
@@ -21,21 +22,15 @@ class AssociationCountsWidget extends StatefulWidget {
     required this.arrivals,
     required this.departures,
     required this.heartbeats,
-    required this.lastUpdated,
-    this.color, required this.minutes,
   }) : super(key: key);
 
-  final Color? color;
   final double width;
   final String operationsSummary,
       dispatches,
       passengers,
       arrivals,
       departures,
-      heartbeats,
-      lastUpdated;
-
-  final int minutes;
+      heartbeats;
 
   @override
   State<AssociationCountsWidget> createState() =>
@@ -46,43 +41,73 @@ class _AssociationCountsWidgetState extends State<AssociationCountsWidget> {
   final mm = ' 🔆🔆🔆🔆🔆🔆 AssociationCountsWidget: 😡';
   bool busy = false;
 
-  late StreamSubscription<DispatchRecord> _subscription;
+  late StreamSubscription<AssociationCounts> _assocCountsSubscription;
+  late StreamSubscription<AmbassadorPassengerCount>
+      _passengerCountsSubscription;
 
   @override
   void initState() {
     super.initState();
     _listen();
-    _handleData();
-    startTimer();
+    _getData();
+    _startTimer();
   }
 
   AssociationCounts? associationCounts;
+  List<AmbassadorPassengerCount> passengerCounts = [];
   late Timer timer;
   int totalPassengers = 0;
- String? date;
+  int hours = 24;
+  String? date;
+
   void _listen() async {
-    _subscription = streamBloc.dispatchStream.listen((event) {
-      pp('$mm ... dispatchStream delivered dispatch for ${event.vehicleReg}');
+    _assocCountsSubscription = associationCountsStream.listen((event) {
+      pp('$mm ... associationCountsStream delivered counts.dispatchRecords for ${event.dispatchRecords}');
+      associationCounts = event;
       if (mounted) {
-        _handleData();
+        setState(() {});
+      }
+    });
+    _passengerCountsSubscription = passengerCountStream.listen((event) {
+      pp('$mm ... passengerCountStream delivered counts for ${event.vehicleReg}');
+      passengerCounts.add(event);
+      _aggregate();
+      if (mounted) {
+        setState(() {});
       }
     });
   }
 
-  void startTimer() {
-    pp('$mm ........ startTimer: tick every ${widget.minutes} minutes');
+  void _aggregate() {
+    totalPassengers = 0;
+    for (var pc in passengerCounts) {
+      totalPassengers += pc.passengersIn!;
+    }
+    pp('$mm ...aggregate: totalPassengers :$totalPassengers');
 
-    date = DateTime.now().toUtc().subtract(Duration(minutes: widget.minutes)).toIso8601String();
-    timer = Timer.periodic(Duration(minutes: widget.minutes), (timer) {
-      pp('$mm ........ timer tick: ${timer.tick} ... call _handleData ...');
-      _handleData();
+  }
+
+  void _startTimer() {
+    pp('$mm ........ startTimer: tick every ${hours} hours');
+    //todo - use settings here for timer?
+    date = DateTime.now()
+        .toUtc()
+        .subtract(Duration(hours: hours))
+        .toIso8601String();
+
+    timer = Timer.periodic(Duration(minutes: 15), (timer) {
+      pp('$mm ........ timer tick: ${timer.tick} ... call getAssociationCounts ...');
+      _getData();
     });
   }
 
-  Future<void> _handleData() async {
-    pp('$mm _handleData ............................ '
-        'getting association counts ... widget.minutes: ${widget.minutes}');
-    date = DateTime.now().toUtc().subtract(Duration(minutes: widget.minutes)).toIso8601String();
+  Future<void> _getData() async {
+    pp('$mm _getData ............................ '
+        'getting association counts ... hours: $hours');
+    date = DateTime.now()
+        .toUtc()
+        .subtract(Duration(hours: hours))
+        .toIso8601String();
 
     setState(() {
       busy = true;
@@ -91,8 +116,11 @@ class _AssociationCountsWidgetState extends State<AssociationCountsWidget> {
       final user = await prefs.getUser();
       associationCounts = await networkHandler.getAssociationCounts(
           user!.associationId!, date!);
-    } catch (e) {
-      pp(e);
+      passengerCounts = await networkHandler
+          .getAssociationAmbassadorPassengerCounts(user.associationId!, date!);
+      _aggregate();
+    } catch (e,s) {
+      pp('$mm ERROR: $e - $s ${E.redDot}${E.redDot}${E.redDot}');
       if (mounted) {
         showSnackBar(
             backgroundColor: Colors.red, message: '$e', context: context);
@@ -101,6 +129,12 @@ class _AssociationCountsWidgetState extends State<AssociationCountsWidget> {
     setState(() {
       busy = false;
     });
+  }
+
+  @override
+  void dispose() {
+    timer.cancel();
+    super.dispose();
   }
 
   @override
@@ -120,34 +154,37 @@ class _AssociationCountsWidgetState extends State<AssociationCountsWidget> {
                       Card(
                         shape: getDefaultRoundedBorder(),
                         elevation: 8,
-                        color: widget.color == null
-                            ? Colors.black54
-                            : widget.color!,
                         child: Padding(
                           padding: const EdgeInsets.all(12.0),
                           child: Column(
                             children: [
                               gapH16,
-                              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
                                     widget.operationsSummary,
-                                    style: myTextStyleMediumLargeWithColor(context,
-                                        Theme.of(context).primaryColorLight, 20),
+                                    style: myTextStyleMediumLargeWithColor(
+                                        context,
+                                        Theme.of(context).primaryColorLight,
+                                        20),
                                   ),
                                   gapW32,
-                                  IconButton(onPressed: (){
-                                    _handleData();
-                                  }, icon: Icon(Icons.refresh, color: getPrimaryColorLight(context),)),
+                                  IconButton(
+                                      onPressed: () {
+                                        _getData();
+                                      },
+                                      icon: Icon(
+                                        Icons.refresh,
+                                        color: getPrimaryColorLight(context),
+                                      )),
                                 ],
                               ),
                               gapH16,
                               Card(
                                 shape: getDefaultRoundedBorder(),
                                 elevation: 12,
-                                color: widget.color == null
-                                    ? Colors.black26
-                                    : Colors.red.shade300,
                                 child: Padding(
                                   padding: const EdgeInsets.all(12.0),
                                   child: Row(
@@ -170,9 +207,6 @@ class _AssociationCountsWidgetState extends State<AssociationCountsWidget> {
                               Card(
                                 shape: getDefaultRoundedBorder(),
                                 elevation: 12,
-                                color: widget.color == null
-                                    ? Colors.black26
-                                    : Colors.red.shade400,
                                 child: Padding(
                                   padding: const EdgeInsets.all(12.0),
                                   child: Row(
@@ -183,9 +217,7 @@ class _AssociationCountsWidgetState extends State<AssociationCountsWidget> {
                                               style: style)),
                                       gapW16,
                                       TotalWidget(
-                                          number: associationCounts!
-                                              .passengerCounts!,
-                                          width: 160),
+                                          number: totalPassengers, width: 160),
                                     ],
                                   ),
                                 ),
@@ -193,9 +225,6 @@ class _AssociationCountsWidgetState extends State<AssociationCountsWidget> {
                               Card(
                                 shape: getDefaultRoundedBorder(),
                                 elevation: 12,
-                                color: widget.color == null
-                                    ? Colors.black26
-                                    : Colors.red.shade500,
                                 child: Padding(
                                   padding: const EdgeInsets.all(12.0),
                                   child: Row(
@@ -215,9 +244,6 @@ class _AssociationCountsWidgetState extends State<AssociationCountsWidget> {
                               Card(
                                 shape: getDefaultRoundedBorder(),
                                 elevation: 12,
-                                color: widget.color == null
-                                    ? Colors.black26
-                                    : Colors.red.shade600,
                                 child: Padding(
                                   padding: const EdgeInsets.all(12.0),
                                   child: Row(
@@ -238,9 +264,6 @@ class _AssociationCountsWidgetState extends State<AssociationCountsWidget> {
                               Card(
                                 shape: getDefaultRoundedBorder(),
                                 elevation: 12,
-                                color: widget.color == null
-                                    ? Colors.black26
-                                    : Colors.red.shade700,
                                 child: Padding(
                                   padding: const EdgeInsets.all(12.0),
                                   child: Row(
@@ -264,11 +287,15 @@ class _AssociationCountsWidgetState extends State<AssociationCountsWidget> {
                                 style: myTextStyleSmall(context),
                               ),
                               gapH8,
-                              date == null? gapW32: Text(
-                                date!,
-                                style: myTextStyleMediumLargeWithColor(context,
-                                    Theme.of(context).primaryColorLight, 14),
-                              ),
+                              date == null
+                                  ? gapW32
+                                  : Text(
+                                      '${getFormattedDateLong(DateTime.parse(date!).toLocal().toIso8601String())}',
+                                      style: myTextStyleMediumLargeWithColor(
+                                          context,
+                                          Theme.of(context).primaryColorLight,
+                                          14),
+                                    ),
                               gapH32,
                             ],
                           ),
